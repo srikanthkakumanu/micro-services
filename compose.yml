@@ -37,7 +37,7 @@ services:
     ports:
       - "9111:9111"
 
-  # User micro service
+  # User microservice
   user-service:
 #    image: srik1980/user-service:1.0
     build:
@@ -54,7 +54,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 
-  # To-Do micro service
+  # To-Do microservice
   todo-service:
 #    image: srik1980/todo-service:1.0
     build:
@@ -71,7 +71,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/tododb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 
-  # video micro-service
+  # video microservice
   video-service:
 #    image: srik1980/video-service:1.0
     build:
@@ -88,7 +88,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/videodb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
       - SPRING_JPA_HIBERNATE_DDL_AUTO=create
 
-  # books micro service
+  # books microservice
   books-service:
 #    image: srik1980/books-service:1.0
     build:
