@@ -1,0 +1,66 @@
+-- Drop DB
+
+DROP DATABASE IF EXISTS videodb;
+DROP DATABASE IF EXISTS tododb;
+DROP DATABASE IF EXISTS booksdb;
+DROP DATABASE IF EXISTS userdb;
+
+-- Drop admin users
+
+DROP USER IF EXISTS `videoadmin`@`%`;
+DROP USER IF EXISTS `todoadmin`@`%`;
+DROP USER IF EXISTS `bookadmin`@`%`;
+DROP USER IF EXISTS `useradmin`@`%`;
+
+-- Drop users
+
+DROP USER IF EXISTS `theuser`@`%`;
+
+-- Create DBs
+
+CREATE DATABASE IF NOT EXISTS videodb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS tododb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS booksdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS userdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Create admin users
+
+CREATE USER IF NOT EXISTS `videoadmin`@`%` IDENTIFIED BY 'videoadmin';
+CREATE USER IF NOT EXISTS `todoadmin`@`%` IDENTIFIED BY 'todoadmin';
+CREATE USER IF NOT EXISTS `bookadmin`@`%` IDENTIFIED BY 'bookadmin';
+CREATE USER IF NOT EXISTS `useradmin`@`%` IDENTIFIED BY 'useradmin';
+
+-- Grant permissions to admin users
+-- GRANT ALL ON `videodb`.* TO `videoadmin`@`%` WITH GRANT OPTION;
+-- GRANT ALL ON `tododb`.* TO `todoadmin`@`%` WITH GRANT OPTION;
+-- GRANT ALL ON `booksdb`.* TO `bookadmin`@`%` WITH GRANT OPTION;
+-- GRANT ALL ON `userdb`.* TO `useradmin`@`%` WITH GRANT OPTION;
+
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, REFERENCES, INDEX, ALTER, EXECUTE, CREATE VIEW, SHOW VIEW,
+CREATE ROUTINE, ALTER ROUTINE, EVENT, TRIGGER ON `videodb`.* TO `videoadmin`@`%` WITH GRANT OPTION;
+
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, REFERENCES, INDEX, ALTER, EXECUTE, CREATE VIEW, SHOW VIEW,
+CREATE ROUTINE, ALTER ROUTINE, EVENT, TRIGGER ON `tododb`.* TO `todoadmin`@`%` WITH GRANT OPTION;
+
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, REFERENCES, INDEX, ALTER, EXECUTE, CREATE VIEW, SHOW VIEW,
+CREATE ROUTINE, ALTER ROUTINE, EVENT, TRIGGER ON `booksdb`.* TO `bookadmin`@`%` WITH GRANT OPTION;
+
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, REFERENCES, INDEX, ALTER, EXECUTE, CREATE VIEW, SHOW VIEW,
+CREATE ROUTINE, ALTER ROUTINE, EVENT, TRIGGER ON `userdb`.* TO `useradmin`@`%` WITH GRANT OPTION;
+
+-- Create user with limited permissions
+
+CREATE USER IF NOT EXISTS `theuser`@`%` IDENTIFIED BY 'theuser';
+
+-- Grant permissions to the specified user
+-- GRANT ALL ON `videodb`.* TO `theuser`@`%` WITH GRANT OPTION;
+-- GRANT ALL ON `tododb`.* TO `theuser`@`%` WITH GRANT OPTION;
+-- GRANT ALL ON `booksdb`.* TO `theuser`@`%` WITH GRANT OPTION;
+-- GRANT ALL ON `userdb`.* TO `theuser`@`%` WITH GRANT OPTION;
+
+GRANT CREATE, SELECT, INSERT, UPDATE, DELETE, SHOW VIEW ON `videodb`.* TO `theuser`@`%`;
+GRANT CREATE, SELECT, INSERT, UPDATE, DELETE, SHOW VIEW ON `tododb`.* TO `theuser`@`%`;
+GRANT CREATE, SELECT, INSERT, UPDATE, DELETE, SHOW VIEW ON `booksdb`.* TO `theuser`@`%`;
+GRANT CREATE, SELECT, INSERT, UPDATE, DELETE, SHOW VIEW ON `userdb`.* TO `theuser`@`%`;
+
+FLUSH PRIVILEGES;
