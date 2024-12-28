@@ -28,32 +28,23 @@ services:
       PMA_HOST: mariadb
       PMA_PORT: 3306
 
-  # Eureka-Discovery-service
-  eureka-discovery-service:
-    #    image: srik1980/eureka-discovery-service:1.0
-    build:
-      context: ./eureka-discovery
-    container_name: eureka-discovery-service
-    ports:
-      - "9111:9111"
-
   # User microservice
-  user-service:
-#    image: srik1980/user-service:1.0
-    build:
-      context: ./user-service
-    container_name: user-service
-    depends_on:
-      - mariadb
-      - phpmyadmin
-    ports:
-      - "9121:9121"
-    environment:
-      - SPRING_DATASOURCE_USERNAME=theuser
-      - SPRING_DATASOURCE_PASSWORD=theuser
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-
+#  user-service:
+##    image: srik1980/user-service:1.0
+#    build:
+#      context: ./user-service
+#    container_name: user-service
+#    depends_on:
+#      - mariadb
+#      - phpmyadmin
+#    ports:
+#      - "9121:9121"
+#    environment:
+#      - SPRING_DATASOURCE_USERNAME=theuser
+#      - SPRING_DATASOURCE_PASSWORD=theuser
+#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+#      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+#
   # To-Do microservice
   todo-service:
 #    image: srik1980/todo-service:1.0
@@ -63,6 +54,7 @@ services:
     depends_on:
       - mariadb
       - phpmyadmin
+      - eureka-discovery-service
     ports:
       - "9131:9131"
     environment:
@@ -70,42 +62,51 @@ services:
       - SPRING_DATASOURCE_PASSWORD=theuser
       - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/tododb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:password@eureka-discovery-service:9111/eureka
 
-  # video microservice
-  video-service:
-#    image: srik1980/video-service:1.0
-    build:
-      context: ./video-service
-    container_name: video-service
-    depends_on:
-      - mariadb
-      - phpmyadmin
-    ports:
-      - "9141:9141"
-    environment:
-      - SPRING_DATASOURCE_USERNAME=theuser
-      - SPRING_DATASOURCE_PASSWORD=theuser
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/videodb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
-
+#  # video microservice
+#  video-service:
+##    image: srik1980/video-service:1.0
+#    build:
+#      context: ./video-service
+#    container_name: video-service
+#    depends_on:
+#      - mariadb
+#      - phpmyadmin
+#    ports:
+#      - "9141:9141"
+#    environment:
+#      - SPRING_DATASOURCE_USERNAME=theuser
+#      - SPRING_DATASOURCE_PASSWORD=theuser
+#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/videodb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+#      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
+#
   # books microservice
-  books-service:
-#    image: srik1980/books-service:1.0
-    build:
-      context: ./books-service
-    container_name: books-service
-    depends_on:
-      - mariadb
-      - phpmyadmin
-    ports:
-      - "9151:9151"
-    environment:
-      - SPRING_DATASOURCE_USERNAME=theuser
-      - SPRING_DATASOURCE_PASSWORD=theuser
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/booksdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-  #      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
+#  books-service:
+##    image: srik1980/books-service:1.0
+#    build:
+#      context: ./books-service
+#    container_name: books-service
+#    depends_on:
+#      - mariadb
+#      - phpmyadmin
+#    ports:
+#      - "9151:9151"
+#    environment:
+#      - SPRING_DATASOURCE_USERNAME=theuser
+#      - SPRING_DATASOURCE_PASSWORD=theuser
+#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/booksdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+#      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+#  #      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
 
+  # Eureka-Discovery-service
+  eureka-discovery-service:
+    #    image: srik1980/eureka-discovery-service:1.0
+    build:
+      context: ./eureka-discovery
+    container_name: eureka-discovery-service
+    ports:
+      - "9111:9111"
 
 volumes:
   mariadb:
