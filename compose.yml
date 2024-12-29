@@ -55,14 +55,16 @@ services:
       - mariadb
       - phpmyadmin
       - eureka-discovery-service
-    ports:
-      - "9131:9131"
+#    ports:
+#      - "9131:9131"
     environment:
       - SPRING_DATASOURCE_USERNAME=theuser
       - SPRING_DATASOURCE_PASSWORD=theuser
       - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/tododb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:password@eureka-discovery-service:9111/eureka
+#      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:password@eureka-discovery-service:9111/eureka
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
+      - EUREKA_CLIENT_ENABLED=true
 
 #  # video microservice
 #  video-service:
@@ -107,6 +109,13 @@ services:
     container_name: eureka-discovery-service
     ports:
       - "9111:9111"
+    environment:
+#      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:password@eureka-discovery-service:9111/eureka
+      - EUREKA_INSTANCE_HOSTNAME=eureka-discovery-service
+      - EUREKA_CLIENT_REGISTER-WITH-EUREKA=false
+      - EUREKA_CLIENT_FETCH-REGISTRY=false
+      - EUREKA_SERVER_ENABLE-SELF-PRESERVATION=false
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
 
 volumes:
   mariadb:
