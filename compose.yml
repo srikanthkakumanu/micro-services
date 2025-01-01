@@ -29,81 +29,81 @@ services:
       PMA_PORT: 3306
 
   # User microservice
-#  user-service:
-##    image: srik1980/user-service:1.0
+  user-service:
+#    image: srik1980/user-service:1.0
+    build:
+      context: ./user-service
+    container_name: user-service
+    depends_on:
+      - mariadb
+      - phpmyadmin
+      - eureka-discovery-service
+    ports:
+      - "9121:9121"
+    environment:
+      - SPRING_DATASOURCE_USERNAME=theuser
+      - SPRING_DATASOURCE_PASSWORD=theuser
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
+
+  # To-Do microservice
+#  todo-service:
+##    image: srik1980/todo-service:1.0
 #    build:
-#      context: ./user-service
-#    container_name: user-service
+#      context: ./todo-service
+#    container_name: todo-service
 #    depends_on:
 #      - mariadb
 #      - phpmyadmin
 #      - eureka-discovery-service
 #    ports:
-#      - "9121:9121"
+#      - "9131:9131"
 #    environment:
 #      - SPRING_DATASOURCE_USERNAME=theuser
 #      - SPRING_DATASOURCE_PASSWORD=theuser
-#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/tododb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
 #      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 #      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
 
-  # To-Do microservice
-  todo-service:
-#    image: srik1980/todo-service:1.0
-    build:
-      context: ./todo-service
-    container_name: todo-service
-    depends_on:
-      - mariadb
-      - phpmyadmin
-      - eureka-discovery-service
-    ports:
-      - "9131:9131"
-    environment:
-      - SPRING_DATASOURCE_USERNAME=theuser
-      - SPRING_DATASOURCE_PASSWORD=theuser
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/tododb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
-
   # video microservice
-  video-service:
-#    image: srik1980/video-service:1.0
-    build:
-      context: ./video-service
-    container_name: video-service
-    depends_on:
-      - mariadb
-      - phpmyadmin
-      - eureka-discovery-service
-    ports:
-      - "9141:9141"
-    environment:
-      - SPRING_DATASOURCE_USERNAME=theuser
-      - SPRING_DATASOURCE_PASSWORD=theuser
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/videodb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
-
-  # books microservice
-  books-service:
-#    image: srik1980/books-service:1.0
-    build:
-      context: ./books-service
-    container_name: books-service
-    depends_on:
-      - mariadb
-      - phpmyadmin
-      - eureka-discovery-service
-    ports:
-      - "9151:9151"
-    environment:
-      - SPRING_DATASOURCE_USERNAME=theuser
-      - SPRING_DATASOURCE_PASSWORD=theuser
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/booksdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-  #      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
+#  video-service:
+##    image: srik1980/video-service:1.0
+#    build:
+#      context: ./video-service
+#    container_name: video-service
+#    depends_on:
+#      - mariadb
+#      - phpmyadmin
+#      - eureka-discovery-service
+#    ports:
+#      - "9141:9141"
+#    environment:
+#      - SPRING_DATASOURCE_USERNAME=theuser
+#      - SPRING_DATASOURCE_PASSWORD=theuser
+#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/videodb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+#      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
+#      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
+#
+#  # books microservice
+#  books-service:
+##    image: srik1980/books-service:1.0
+#    build:
+#      context: ./books-service
+#    container_name: books-service
+#    depends_on:
+#      - mariadb
+#      - phpmyadmin
+#      - eureka-discovery-service
+#    ports:
+#      - "9151:9151"
+#    environment:
+#      - SPRING_DATASOURCE_USERNAME=theuser
+#      - SPRING_DATASOURCE_PASSWORD=theuser
+#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/booksdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+#      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+#  #      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
+#      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
 
   # Eureka-Discovery-service
   eureka-discovery-service:
@@ -116,6 +116,7 @@ services:
     environment:
       - EUREKA_INSTANCE_HOSTNAME=eureka-discovery-service
       - EUREKA_CLIENT_REGISTER-WITH-EUREKA=false
+      - EUREKA_INSTANCE_PREFER_IPADDRESS=true
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
 
 volumes:
