@@ -29,23 +29,23 @@ services:
       PMA_PORT: 3306
 
   # User microservice
-  user-service:
-#    image: srik1980/user-service:1.0
-    build:
-      context: ./user-service
-    container_name: user-service
-    depends_on:
-      - mariadb
-      - phpmyadmin
-      - eureka-discovery-service
-    ports:
-      - "9121:9121"
-    environment:
-      - SPRING_DATASOURCE_USERNAME=theuser
-      - SPRING_DATASOURCE_PASSWORD=theuser
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
+#  user-service:
+##    image: srik1980/user-service:1.0
+#    build:
+#      context: ./user-service
+#    container_name: user-service
+#    depends_on:
+#      - mariadb
+#      - phpmyadmin
+#      - eureka-discovery-service
+#    ports:
+#      - "9121:9121"
+#    environment:
+#      - SPRING_DATASOURCE_USERNAME=theuser
+#      - SPRING_DATASOURCE_PASSWORD=theuser
+#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+#      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+#      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
 
   # To-Do microservice
 #  todo-service:
@@ -117,6 +117,16 @@ services:
       - EUREKA_INSTANCE_HOSTNAME=eureka-discovery-service
       - EUREKA_CLIENT_REGISTER-WITH-EUREKA=false
       - EUREKA_INSTANCE_PREFER_IPADDRESS=true
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
+
+  api-gateway:
+#   image: srik1980/api-gateway:1.0
+    build:
+      context: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "9211:9211"
+    environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
 
 volumes:
