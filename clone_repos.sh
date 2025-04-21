@@ -1,3 +1,4 @@
+#! /bin/bash
 git clone https://github.com/srikanthkakumanu/user-service.git
 git clone https://github.com/srikanthkakumanu/books-service.git
 git clone https://github.com/srikanthkakumanu/video-service.git
