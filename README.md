@@ -23,10 +23,29 @@ sh ./clone_repos.sh
 
 To build Jars for micro services and building docker images, you can use the following script.
 
+Note: You comment the unwanted micro service in this script to omit them from the execution.
+
 ```bash
 sh ./buld.sh
 ```
 
 ## Running micro-services and & DB
 
-You can use the following command: ```bash docker compose up -d```
+You can use the following command: ```bash docker compose up -d```. It runs the microservices in detached mode.
+
+## Redirect all console logs to file
+
+We can redirect all the console logs to a specific file by using the following command.
+
+```bash
+
+docker compose logs -f -t > console_log.log
+```
+
+```
+
+```
+
+```
+
+```

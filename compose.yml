@@ -1,18 +1,15 @@
-services:
+# This compose file is designed for runtime.
+# Images are built separately using `docker compose bake`.
 
+services:
   # MariaDB
   mariadb:
     image: mariadb:latest
     restart: on-failure
     environment:
-      MARIADB_DATABASE:
-      #      MARIADB_USER: root
-      #      MARIADB_PASSWORD: root
       MARIADB_ROOT_PASSWORD: root
-    #    expose:
-    #      - 40000
     ports:
-      - 3306:3306
+      - "3306:3306"
     volumes:
       - mariadb:/var/lib/mysql
     networks:
@@ -21,11 +18,9 @@ services:
   # UI for MariaDB/MySQL
   phpmyadmin:
     image: phpmyadmin
-    restart: on-failure #always
-    expose:
-      - 40001
+    restart: on-failure
     ports:
-      - 40001:80
+      - "40001:80"
     environment:
       PMA_HOST: mariadb
       PMA_PORT: 3306
@@ -34,9 +29,7 @@ services:
 
   # Eureka-Discovery-service
   eureka-discovery-service:
-    #    image: srik1980/eureka-discovery-service:1.0
-    build:
-      context: ./eureka-discovery
+    image: eureka-discovery-service:latest # Changed from 'build' to 'image'
     container_name: eureka-discovery-service
     ports:
       - "9111:9111"
@@ -44,68 +37,62 @@ services:
       - EUREKA_INSTANCE_HOSTNAME=eureka-discovery-service
       - EUREKA_CLIENT_REGISTER-WITH-EUREKA=false
       - EUREKA_INSTANCE_PREFER_IPADDRESS=true
-    #      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
+    networks:
+      - eureka
+
+  # User microservice
+  user-service:
+    image: user-service:latest # Changed from 'build' to 'image'
+    container_name: user-service
+    depends_on:
+      - mariadb
+      - eureka-discovery-service
+    ports:
+      - "9121:9121"
+    environment:
+      - SPRING_APP_NAME=user-service
+      - SPRING_DATASOURCE_USERNAME=theuser
+      - SPRING_DATASOURCE_PASSWORD=theuser
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - USER_SESSION_TIMEOUT=5m
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
     networks:
       - eureka
 
   # API Gateway
   api-gateway:
-    #   image: srik1980/api-gateway:1.0
-    build:
-      context: ./api-gateway
+    image: api-gateway:latest # Changed from 'build' to 'image'
     container_name: api-gateway
     depends_on:
       - eureka-discovery-service
     ports:
       - "9211:9211"
     environment:
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
     networks:
       - eureka
 
-  # User microservice
-#  user-service:
-##    image: srik1980/user-service:1.0
-#    build:
-#      context: ./user-service
-#    container_name: user-service
+#  # books microservice (Example of how it would look)
+#  books-service:
+#    image: books-service:latest
+#    container_name: books-service
 #    depends_on:
 #      - mariadb
-#      - phpmyadmin
 #      - eureka-discovery-service
 #    ports:
-#      - "9121:9121"
+#      - "9151:9151"
 #    environment:
+#      - SPRING_APP_NAME=books-service
 #      - SPRING_DATASOURCE_USERNAME=theuser
 #      - SPRING_DATASOURCE_PASSWORD=theuser
-#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-#      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-##      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
-#      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
+#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/booksdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+#      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
+#      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+#      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
 #    networks:
 #      - eureka
-
-  # books microservice
-  books-service:
-#    image: srik1980/books-service:1.0
-    build:
-      context: ./books-service
-    container_name: books-service
-    depends_on:
-      - mariadb
-      - phpmyadmin
-      - eureka-discovery-service
-    ports:
-      - "9151:9151"
-    environment:
-      - SPRING_DATASOURCE_USERNAME=theuser
-      - SPRING_DATASOURCE_PASSWORD=theuser
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/booksdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-  #      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-discovery-service:9111/eureka
-    networks:
-      - eureka
 
 volumes:
   mariadb:
