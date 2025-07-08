@@ -1,4 +1,4 @@
-# This compose file is designed for runtime.
+# This docker compose file is designed for runtime.
 # Images are built separately using `docker compose bake`.
 
 services:
@@ -24,6 +24,20 @@ services:
     environment:
       PMA_HOST: mariadb
       PMA_PORT: 3306
+    networks:
+      - eureka
+
+# Hashicorp Vault for secrets
+  vault:
+    image: vault:alpine
+    container_name: vault
+    restart: on-failure
+    ports:
+      - "8200:8200"
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=srikanth # WARNING: For development only!
+    cap_add:
+      - IPC_LOCK
     networks:
       - eureka
 
@@ -57,6 +71,8 @@ services:
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
       - USER_SESSION_TIMEOUT=5m
       - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - ROOT_LOG_LEVEL=info
+      - SPRING_SECURITY_LOG_LEVEL=info
       - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
     networks:
       - eureka
@@ -67,10 +83,29 @@ services:
     container_name: api-gateway
     depends_on:
       - eureka-discovery-service
+      - user-service
     ports:
       - "9211:9211"
     environment:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - ROOT_LOG_LEVEL=info
+      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
+    networks:
+      - eureka
+
+  # Cloud Config Server Service
+  cloud-config-service:
+    image: cloud-config-service:latest # Changed from 'build' to 'image'
+    container_name: cloud-config-service
+#    depends_on:
+#      - eureka-discovery-service
+#      - user-service
+    ports:
+      - "9211:9211"
+    environment:
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - ROOT_LOG_LEVEL=info
+      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
     networks:
       - eureka
 
@@ -90,6 +125,7 @@ services:
 #      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/booksdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
 #      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
 #      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+#      - ROOT_LOG_LEVEL=debug
 #      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
 #    networks:
 #      - eureka
@@ -100,3 +136,4 @@ volumes:
 
 networks:
   eureka:
+    name: "eureka"

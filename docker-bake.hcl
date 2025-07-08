@@ -52,3 +52,16 @@ target "books-service" {
     PROJECT_VERSION = "${VERSION}"
   }
 }
+
+# Build definition for the Cloud Config Server for all microservices.
+target "cloud-config-service" {
+  # The directory containing the Dockerfile
+  context = "./cloud-config-service"
+  # The name and tag for the final image
+  tags    = ["cloud-config-service:latest"]
+  # Build arguments passed to the Dockerfile
+  args = {
+    PROJECT_NAME    = "cloud-config-service"
+    PROJECT_VERSION = "${VERSION}"
+  }
+}
