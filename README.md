@@ -42,10 +42,9 @@ We can redirect all the console logs to a specific file by using the following c
 docker compose logs -f -t > console_log.log
 ```
 
-```
 
-```
+## Setting Up Vault for Secret Management
 
-```
 
-```
+1. [https://myros.net/hashicorp-vault-docker-compose-part1](https://https://myros.net/hashicorp-vault-docker-compose-part1)
+2. https://myros.net/hashicorp-vault-docker-compose-part2
