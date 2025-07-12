@@ -21,7 +21,7 @@ sh ./clone_repos.sh
 
 ## Building Micro-service Jars & Docker Images
 
-To build Jars for micro services and building docker images, you can use the following script.
+To build Jars for micro services and building docker images (uses Docker bake), you can use the following script. *docker-bake.hcl* contains all the microservice declarations.
 
 Note: You comment the unwanted micro service in this script to omit them from the execution.
 
@@ -31,7 +31,7 @@ sh ./buld.sh
 
 ## Running micro-services and & DB
 
-You can use the following command: ```bash docker compose up -d```. It runs the microservices in detached mode.
+You can use the following command: ```docker compose up -d```. It runs the microservices in detached mode.
 
 ## Redirect all console logs to file
 
@@ -42,8 +42,17 @@ We can redirect all the console logs to a specific file by using the following c
 docker compose logs -f -t > console_log.log
 ```
 
-
 ## Setting Up Vault for Secret Management
+
+
+`docker compose up` - Starts the vault server/service in DEV mode. It also executes *./vault/config/vault-entrypoint.sh* that configures all the required secrets.
+
+
+
+Note: *vault-prod.hcl* is used only in PROD environment along with MariaDB as backup storage for secrets.
+
+
+Useful Links:
 
 
 1. [https://myros.net/hashicorp-vault-docker-compose-part1](https://https://myros.net/hashicorp-vault-docker-compose-part1)

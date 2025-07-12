@@ -1,7 +1,7 @@
 # This group defines a "default" target.
 # Running `docker compose bake` without arguments will build all targets in this group in parallel.
 group "default" {
-  targets = ["eureka-discovery-service", "user-service", "api-gateway"]
+  targets = ["eureka-discovery-service", "user-service", "books-service", "api-gateway", "cloud-config-service"]
 }
 
 # A variable for the default version tag, making it easy to update.

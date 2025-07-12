@@ -1,7 +1,55 @@
 # This docker compose file is designed for runtime.
-# Images are built separately using `docker compose bake`.
+# Images are built separately using `docker buildx bake`.
 
 services:
+
+  ## Hashicorp Vault for secret's
+  ## Vault Dev
+  vault:
+    image: hashicorp/vault:latest
+    container_name: vault
+    restart: on-failure
+    ports:
+      - "8200:8200"
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=srikanth # WARNING: For development only!
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+#      - VAULT_LOG_LEVEL=debug
+      # This address is used by the vault CLI inside the container
+      - VAULT_ADDR=http://127.0.0.1:8200
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      # Mount the entrypoint script we just created
+      - ./vault/config/vault-entrypoint.sh:/usr/local/bin/vault-entrypoint.sh
+      # persist vault data across container restarts
+      - vault:/vault/data
+    # Use the script as the entrypoint for the container
+    entrypoint: /usr/local/bin/vault-entrypoint.sh
+    networks:
+      - tools
+
+#  ## Vault Prod
+#  vault:
+#    image: hashicorp/vault:latest
+#    container_name: vault
+#    restart: on-failure
+#    ports:
+#      - "8200:8200"
+##    environment:
+##      - VAULT_DEV_ROOT_TOKEN_ID=srikanth # WARNING: For development only!
+##      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+#    cap_add:
+#      - IPC_LOCK
+#    volumes:
+#      - vault:/vault/data
+#      - ./vault/config:/home/skakumanu/practice/micro-services/vault/config
+#    command: vault server -config=/home/skakumanu/practice/micro-services/vault/config/vault-prod.hcl
+#    depends_on:
+#      - mariadb
+#    networks:
+#      - tools
+
   # MariaDB
   mariadb:
     image: mariadb:latest
@@ -12,8 +60,9 @@ services:
       - "3306:3306"
     volumes:
       - mariadb:/var/lib/mysql
+      - ./mariadb-init:/docker-entrypoint-initdb.d
     networks:
-      - eureka
+      - tools
 
   # UI for MariaDB/MySQL
   phpmyadmin:
@@ -25,97 +74,96 @@ services:
       PMA_HOST: mariadb
       PMA_PORT: 3306
     networks:
-      - eureka
+      - tools
 
-# Hashicorp Vault for secrets
-  vault:
-    image: vault:alpine
-    container_name: vault
-    restart: on-failure
-    ports:
-      - "8200:8200"
-    environment:
-      - VAULT_DEV_ROOT_TOKEN_ID=srikanth # WARNING: For development only!
-    cap_add:
-      - IPC_LOCK
-    networks:
-      - eureka
-
-  # Eureka-Discovery-service
-  eureka-discovery-service:
-    image: eureka-discovery-service:latest # Changed from 'build' to 'image'
-    container_name: eureka-discovery-service
-    ports:
-      - "9111:9111"
-    environment:
-      - EUREKA_INSTANCE_HOSTNAME=eureka-discovery-service
-      - EUREKA_CLIENT_REGISTER-WITH-EUREKA=false
-      - EUREKA_INSTANCE_PREFER_IPADDRESS=true
-    networks:
-      - eureka
-
-  # User microservice
-  user-service:
-    image: user-service:latest # Changed from 'build' to 'image'
-    container_name: user-service
-    depends_on:
-      - mariadb
-      - eureka-discovery-service
-    ports:
-      - "9121:9121"
-    environment:
-      - SPRING_APP_NAME=user-service
-      - SPRING_DATASOURCE_USERNAME=theuser
-      - SPRING_DATASOURCE_PASSWORD=theuser
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-      - USER_SESSION_TIMEOUT=5m
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-      - ROOT_LOG_LEVEL=info
-      - SPRING_SECURITY_LOG_LEVEL=info
-      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
-    networks:
-      - eureka
-
-  # API Gateway
-  api-gateway:
-    image: api-gateway:latest # Changed from 'build' to 'image'
-    container_name: api-gateway
-    depends_on:
-      - eureka-discovery-service
-      - user-service
-    ports:
-      - "9211:9211"
-    environment:
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-      - ROOT_LOG_LEVEL=info
-      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
-    networks:
-      - eureka
-
-  # Cloud Config Server Service
-  cloud-config-service:
-    image: cloud-config-service:latest # Changed from 'build' to 'image'
-    container_name: cloud-config-service
+#  # Eureka-Discovery-service
+#  eureka-discovery-service:
+#    image: eureka-discovery-service:latest # Changed from 'build' to 'image'
+#    container_name: eureka-discovery-service
+#    ports:
+#      - "9111:9111"
+#    environment:
+#      - EUREKA_INSTANCE_HOSTNAME=eureka-discovery-service
+#      - EUREKA_CLIENT_REGISTER-WITH-EUREKA=false
+#      - EUREKA_INSTANCE_PREFER_IPADDRESS=true
+#      - SPRING_ACTIVE_PROFILE=dev
+#    networks:
+#      - tools
+#      - ms
+#
+#  # User microservice
+#  user-service:
+#    image: user-service:latest # Changed from 'build' to 'image'
+#    container_name: user-service
+#    depends_on:
+#      mariadb:
+#        condition: service_healthy
+#      eureka-discovery-service:
+#        condition: service_healthy
+#    ports:
+#      - "9121:9121"
+#    environment:
+#      - SPRING_APP_NAME=user-service
+#      - SPRING_DATASOURCE_USERNAME=theuser
+#      - SPRING_DATASOURCE_PASSWORD=theuser
+#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+#      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+#      - USER_SESSION_TIMEOUT=5m
+#      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+#      - ROOT_LOG_LEVEL=info
+#      - SPRING_SECURITY_LOG_LEVEL=info
+#      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
+#      - SPRING_ACTIVE_PROFILE=dev
+#    networks:
+#      - tools
+#      - ms
+#
+#  # API Gateway
+#  api-gateway:
+#    image: api-gateway:latest # Changed from 'build' to 'image'
+#    container_name: api-gateway
 #    depends_on:
 #      - eureka-discovery-service
 #      - user-service
-    ports:
-      - "9211:9211"
-    environment:
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-      - ROOT_LOG_LEVEL=info
-      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
-    networks:
-      - eureka
-
-#  # books microservice (Example of how it would look)
+#    ports:
+#      - "9211:9211"
+#    environment:
+#      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+#      - ROOT_LOG_LEVEL=info
+#      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
+#      - SPRING_ACTIVE_PROFILE=dev
+#    networks:
+#      - tools
+#      - ms
+#
+#  # Cloud Config Server Service
+#  cloud-config-service:
+#    image: cloud-config-service:latest # Changed from 'build' to 'image'
+#    container_name: cloud-config-service
+##    depends_on:
+##      - eureka-discovery-service
+##      - user-service
+#    ports:
+#      - "9311:9311"
+#    environment:
+#      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+#      - ROOT_LOG_LEVEL=info
+#      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
+#      - SPRING_ACTIVE_PROFILE=dev
+#      - SERVLET_CONTEXT_PATH=/config
+#    networks:
+#      - tools
+#      - ms
+#
+#  # books microservice
 #  books-service:
 #    image: books-service:latest
 #    container_name: books-service
 #    depends_on:
-#      - mariadb
-#      - eureka-discovery-service
+#      mariadb:
+#        condition: service_healthy
+#      eureka-discovery-service:
+#        condition: service_healthy
 #    ports:
 #      - "9151:9151"
 #    environment:
@@ -127,13 +175,19 @@ services:
 #      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
 #      - ROOT_LOG_LEVEL=debug
 #      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
+#      - SPRING_ACTIVE_PROFILE=dev
 #    networks:
-#      - eureka
+#      - tools
+#      - ms
 
 volumes:
   mariadb:
     driver: local
+  vault:
+    driver: local
 
 networks:
-  eureka:
-    name: "eureka"
+  tools:
+    name: tools
+  ms:
+    name: ms
