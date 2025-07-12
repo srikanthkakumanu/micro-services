@@ -76,66 +76,64 @@ services:
     networks:
       - tools
 
-#  # Eureka-Discovery-service
-#  eureka-discovery-service:
-#    image: eureka-discovery-service:latest # Changed from 'build' to 'image'
-#    container_name: eureka-discovery-service
-#    ports:
-#      - "9111:9111"
-#    environment:
-#      - EUREKA_INSTANCE_HOSTNAME=eureka-discovery-service
-#      - EUREKA_CLIENT_REGISTER-WITH-EUREKA=false
-#      - EUREKA_INSTANCE_PREFER_IPADDRESS=true
-#      - SPRING_ACTIVE_PROFILE=dev
-#    networks:
-#      - tools
-#      - ms
-#
-#  # User microservice
-#  user-service:
-#    image: user-service:latest # Changed from 'build' to 'image'
-#    container_name: user-service
-#    depends_on:
-#      mariadb:
-#        condition: service_healthy
-#      eureka-discovery-service:
-#        condition: service_healthy
-#    ports:
-#      - "9121:9121"
-#    environment:
-#      - SPRING_APP_NAME=user-service
-#      - SPRING_DATASOURCE_USERNAME=theuser
-#      - SPRING_DATASOURCE_PASSWORD=theuser
-#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-#      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-#      - USER_SESSION_TIMEOUT=5m
-#      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-#      - ROOT_LOG_LEVEL=info
-#      - SPRING_SECURITY_LOG_LEVEL=info
-#      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
-#      - SPRING_ACTIVE_PROFILE=dev
-#    networks:
-#      - tools
-#      - ms
-#
-#  # API Gateway
-#  api-gateway:
-#    image: api-gateway:latest # Changed from 'build' to 'image'
-#    container_name: api-gateway
-#    depends_on:
-#      - eureka-discovery-service
-#      - user-service
-#    ports:
-#      - "9211:9211"
-#    environment:
-#      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-#      - ROOT_LOG_LEVEL=info
-#      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
-#      - SPRING_ACTIVE_PROFILE=dev
-#    networks:
-#      - tools
-#      - ms
-#
+  # Eureka-Discovery-service
+  eureka-discovery-service:
+    image: eureka-discovery-service:latest # Changed from 'build' to 'image'
+    container_name: eureka-discovery-service
+    ports:
+      - "9111:9111"
+    environment:
+      - EUREKA_INSTANCE_HOSTNAME=eureka-discovery-service
+      - EUREKA_CLIENT_REGISTER-WITH-EUREKA=false
+      - EUREKA_INSTANCE_PREFER_IPADDRESS=true
+      - SPRING_ACTIVE_PROFILE=dev
+    networks:
+      - tools
+      - ms
+
+  # User microservice
+  user-service:
+    image: user-service:latest # Changed from 'build' to 'image'
+    container_name: user-service
+    depends_on:
+      - mariadb
+      - eureka-discovery-service
+    ports:
+      - "9121:9121"
+    environment:
+      - SPRING_APP_NAME=user-service
+      - SPRING_DATASOURCE_USERNAME=theuser
+      - SPRING_DATASOURCE_PASSWORD=theuser
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - USER_SESSION_TIMEOUT=5m
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - ROOT_LOG_LEVEL=info
+      - SPRING_SECURITY_LOG_LEVEL=info
+      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
+      - SPRING_ACTIVE_PROFILE=dev
+    networks:
+      - tools
+      - ms
+
+  # API Gateway
+  api-gateway:
+    image: api-gateway:latest # Changed from 'build' to 'image'
+    container_name: api-gateway
+    depends_on:
+      - eureka-discovery-service
+      - user-service
+    ports:
+      - "9211:9211"
+    environment:
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - ROOT_LOG_LEVEL=info
+      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
+      - SPRING_ACTIVE_PROFILE=dev
+    networks:
+      - tools
+      - ms
+
 #  # Cloud Config Server Service
 #  cloud-config-service:
 #    image: cloud-config-service:latest # Changed from 'build' to 'image'
@@ -154,31 +152,29 @@ services:
 #    networks:
 #      - tools
 #      - ms
-#
-#  # books microservice
-#  books-service:
-#    image: books-service:latest
-#    container_name: books-service
-#    depends_on:
-#      mariadb:
-#        condition: service_healthy
-#      eureka-discovery-service:
-#        condition: service_healthy
-#    ports:
-#      - "9151:9151"
-#    environment:
-#      - SPRING_APP_NAME=books-service
-#      - SPRING_DATASOURCE_USERNAME=theuser
-#      - SPRING_DATASOURCE_PASSWORD=theuser
-#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/booksdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-#      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
-#      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-#      - ROOT_LOG_LEVEL=debug
-#      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
-#      - SPRING_ACTIVE_PROFILE=dev
-#    networks:
-#      - tools
-#      - ms
+
+  # books microservice
+  books-service:
+    image: books-service:latest
+    container_name: books-service
+    depends_on:
+      - mariadb
+      - eureka-discovery-service
+    ports:
+      - "9151:9151"
+    environment:
+      - SPRING_APP_NAME=books-service
+      - SPRING_DATASOURCE_USERNAME=theuser
+      - SPRING_DATASOURCE_PASSWORD=theuser
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/booksdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - ROOT_LOG_LEVEL=info
+      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
+      - SPRING_ACTIVE_PROFILE=dev
+    networks:
+      - tools
+      - ms
 
 volumes:
   mariadb:

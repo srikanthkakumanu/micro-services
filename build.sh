@@ -19,9 +19,9 @@ build_service() {
 
 build_service "eureka-discovery"
 build_service "user-service"
-# build_service "books-service" # This service is currently disabled
+build_service "books-service"
 build_service "api-gateway"
-build_service "cloud-config-service"
+#build_service "cloud-config-service"
 
 echo "----------  Gradle: clean & build completed..  ----------"
 
