@@ -61,14 +61,59 @@ Useful Links:
 
 
 
+***init-vault-secrets.sh** (Sample file)
+
 ```bash
 #!/bin/sh
-
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
 # This script assumes that VAULT_ADDR and VAULT_TOKEN (or VAULT_DEV_ROOT_TOKEN_ID)
 # are already set in the environment from which it is called.
 
+echo "Initializing Vault with secrets..."
+
+# Create secrets
+vault kv put secret/dev/db/root username=root password=root profile=dev
+echo "Secret 'secret/dev/db/root' created."
+vault kv put secret/qa/db/root username=root password=root profile=qa
+echo "Secret 'secret/qa/db/root' created."
+vault kv put secret/prod/db/root username=root password=root profile=prod
+echo "Secret 'secret/prod/db/root' created."
+
+vault kv put secret/dev/db username=theuser password=theuser profile=dev
+echo "Secret 'secret/dev/db' created."
+vault kv put secret/qa/db username=theuser password=theuser profile=qa
+echo "Secret 'secret/qa/db' created."
+vault kv put secret/prod/db username=theuser password=theuser profile=prod
+echo "Secret 'secret/prod/db' created."
+
+vault kv put secret/dev/keys api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=dev
+echo "Secret 'secret/dev/keys' created."
+vault kv put secret/qa/keys api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=qa
+echo "Secret 'secret/qa/keys' created."
+vault kv put secret/prod/keys api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=prod
+echo "Secret 'secret/prod/keys' created."
+vault kv put set/dev/keys/gh gh-username=username gh-password=password profile=dev
+echo "Secret 'secret/dev/keys/gh' created."
+vault kv put set/dev/keys gh-username=username gh-password=password profile=qa
+echo "Secret 'secret/qa/keys/gh' created."
+vault kv put set/dev/keys gh-username=username gh-password=password profile=prod
+echo "Secret 'secret/prod/keys/gh' created."
+
+# Verify secrets have been written
+echo "Verifying secrets..."
+vault kv get secret/dev/db/root
+vault kv get secret/qa/db/root
+vault kv get secret/prod/db/root
+
+vault kv get secret/dev/db
+vault kv get secret/qa/db
+vault kv get secret/prod/db
+
+vault kv get secret/dev/keys
+vault kv get secret/qa/keys
+vault kv get secret/prod/keys
+echo "Secret initialization complete."
 
 ```
