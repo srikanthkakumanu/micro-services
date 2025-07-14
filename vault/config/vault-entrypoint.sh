@@ -20,19 +20,11 @@ echo "Vault is up and running!"
 
 # The VAULT_ADDR and VAULT_DEV_ROOT_TOKEN_ID env vars are already set in compose.yml,
 # so the vault CLI is ready to use.
+# Call the external script to initialize secrets.
+# We assume the script is in the same directory.
 echo "Initializing Vault with secrets..."
-vault kv put secret/db/root username=root password=root profile=dev
-echo "Secret 'secret/db/root' created."
-vault kv put secret/db username=theuser password=theuser profile=dev
-echo "Secret 'secret/db' created."
-vault kv put secret/keys api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=dev
-echo "Secret 'secret/keys' created."
-
-vault kv get secret/db/root
-vault kv get secret/db
-vault kv get secret/keys
-
-echo "Initialization complete."
+./vault/config/init-vault-secrets.sh
+cho "Vault Secrets Initialization complete."
 
 # Bring the Vault server process to the foreground
 wait $VAULT_PID
