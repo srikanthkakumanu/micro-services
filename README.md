@@ -44,7 +44,6 @@ docker compose logs -f -t > console_log.log
 
 ## Setting Up Vault for Secret Management
 
-
 1. Run the following commands:
 
    ``````bash
@@ -53,13 +52,23 @@ docker compose logs -f -t > console_log.log
    ``````
 2. `docker compose up` - Starts the vault server/service in DEV mode. It also executes *./vault/config/vault-entrypoint.sh* that configures all the required secrets.
 
-
-
-Note: *vault-prod.hcl* is used only in PROD environment along with MariaDB as backup storage for secrets.
-
-
+Note: *vault-prod.hcl* is used only in PROD environment along with MariaDB as backup storage for secrets. init-vault-secrets.sh file contains sensitive secrets info hence it is added into .gitignore.
 
 Useful Links:
 
 1. [https://myros.net/hashicorp-vault-docker-compose-part1](https://https://myros.net/hashicorp-vault-docker-compose-part1)
 2. https://myros.net/hashicorp-vault-docker-compose-part2
+
+
+
+```bash
+#!/bin/sh
+
+# Exit immediately if a command exits with a non-zero status.
+set -e
+
+# This script assumes that VAULT_ADDR and VAULT_TOKEN (or VAULT_DEV_ROOT_TOKEN_ID)
+# are already set in the environment from which it is called.
+
+
+```
