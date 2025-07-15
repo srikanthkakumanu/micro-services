@@ -23,8 +23,9 @@ echo "Vault is up and running!"
 # Call the external script to initialize secrets.
 # We assume the script is in the same directory.
 echo "Initializing Vault with secrets..."
-./vault/config/init-vault-secrets.sh
-cho "Vault Secrets Initialization complete."
+chmod +x /usr/local/bin/init-vault-secrets.sh
+/usr/local/bin/init-vault-secrets.sh
+echo "Vault Secrets Initialization complete."
 
 # Bring the Vault server process to the foreground
 wait $VAULT_PID
