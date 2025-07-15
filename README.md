@@ -61,7 +61,9 @@ Useful Links:
 
 
 
-***init-vault-secrets.sh** (Sample file)
+
+
+**init-vault-secrets.sh** (Sample file)
 
 ```bash
 #!/bin/sh
