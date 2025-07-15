@@ -74,46 +74,66 @@ set -e
 echo "Initializing Vault with secrets..."
 
 # Create secrets
-vault kv put secret/dev/db/root username=root password=root profile=dev
-echo "Secret 'secret/dev/db/root' created."
-vault kv put secret/qa/db/root username=root password=root profile=qa
-echo "Secret 'secret/qa/db/root' created."
-vault kv put secret/prod/db/root username=root password=root profile=prod
-echo "Secret 'secret/prod/db/root' created."
 
-vault kv put secret/dev/db username=theuser password=theuser profile=dev
-echo "Secret 'secret/dev/db' created."
-vault kv put secret/qa/db username=theuser password=theuser profile=qa
-echo "Secret 'secret/qa/db' created."
-vault kv put secret/prod/db username=theuser password=theuser profile=prod
-echo "Secret 'secret/prod/db' created."
+# -- Root DB --
+vault kv put secret/data/db/root/dev user=root password=root profile=dev
+echo "Secret 'secret/data/db/root/dev' created."
+vault kv put secret/data/db/root/qa user=root password=root profile=qa
+echo "Secret 'secret/data/db/root/qa' created."
+vault kv put secret/data/db/root/prod user=root password=root profile=prod
+echo "Secret 'secret/data/db/root/prod' created."
 
-vault kv put secret/dev/keys api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=dev
-echo "Secret 'secret/dev/keys' created."
-vault kv put secret/qa/keys api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=qa
-echo "Secret 'secret/qa/keys' created."
-vault kv put secret/prod/keys api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=prod
-echo "Secret 'secret/prod/keys' created."
-vault kv put set/dev/keys/gh gh-username=username gh-password=password profile=dev
-echo "Secret 'secret/dev/keys/gh' created."
-vault kv put set/dev/keys gh-username=username gh-password=password profile=qa
-echo "Secret 'secret/qa/keys/gh' created."
-vault kv put set/dev/keys gh-username=username gh-password=password profile=prod
-echo "Secret 'secret/prod/keys/gh' created."
+# -- Microservices & DB --
+# User Micro Service = DB
+vault kv put secret/data/db/userdb/dev user=theuser password=theuser flw-user=useradmin flw-password=useradmin db-name=userdb profile=dev
+echo "Secret 'secret/data/db/userdb/dev' created."
+vault kv put secret/data/db/userdb/qa user=theuser password=theuser flw-user=useradmin flw-password=useradmin db-name=userdb profile=qa
+echo "Secret 'secret/data/db/userdb/qa' created."
+vault kv put secret/data/db/userdb/prod user=theuser password=theuser flw-user=useradmin flw-password=useradmin db-name=userdb profile=prod
+echo "Secret 'secret/data/db/userdb/prod' created."
+
+# User Micro Service - Security & Authentication
+vault kv put secret/data/ms/security/auth/dev auth-user=theuser auth-password=theuser profile=dev
+echo "Secret 'secret/data/ms/security/auth/dev' created."
+vault kv put secret/data/ms/security/auth/qa auth-user=theuser auth-password=theuser profile=qa
+echo "Secret 'secret/data/ms/security/auth/qa' created."
+vault kv put secret/data/ms/security/auth/prod auth-user=theuser auth-password=theuser profile=prod
+echo "Secret 'secret/data/ms/security/auth/prod' created."
+
+# Books Micro Service - DB
+vault kv put secret/data/db/booksdb/dev user=theuser password=theuser flw-user=bookadmin flw-password=bookadmin db-name=booksdb profile=dev
+echo "Secret 'secret/data/db/booksdb/dev' created."
+vault kv put secret/data/db/booksdb/qa user=theuser password=theuser flw-user=bookadmin flw-password=bookadmin db-name=booksdb profile=qa
+echo "Secret 'secret/data/db/booksdb/qa' created."
+vault kv put secret/data/db/booksdb/prod user=theuser password=theuser flw-user=bookadmin flw-password=bookadmin db-name=booksdb profile=prod
+echo "Secret 'secret/data/db/booksdb/prod' created."
+
+# -- API --
+vault kv put secret/data/api/keys/dev gh-user=<your GitHub username> gh-password=<your GitHub password> api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=dev
+echo "Secret 'secret/data/api/keys/dev' created."
+vault kv put secret/data/api/keys/qa gh-user=<your GitHub username> gh-password=<your GitHub password> api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=qa
+echo "Secret 'secret/data/api/keys/qa' created."
+vault kv put secret/data/api/keys/prod gh-user=<your GitHub username> gh-password=<your GitHub password> api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=prod
+echo "Secret 'secret/data/api/keys/prod' created."
+
 
 # Verify secrets have been written
 echo "Verifying secrets..."
-vault kv get secret/dev/db/root
-vault kv get secret/qa/db/root
-vault kv get secret/prod/db/root
+vault kv get secret/data/db/root/dev
+vault kv get secret/data/db/root/qa
+vault kv get secret/data/db/root/prod
 
-vault kv get secret/dev/db
-vault kv get secret/qa/db
-vault kv get secret/prod/db
+vault kv get secret/data/db/userdb/dev
+vault kv get secret/data/db/userdb/qa
+vault kv get secret/data/db/userdb/prod
 
-vault kv get secret/dev/keys
-vault kv get secret/qa/keys
-vault kv get secret/prod/keys
+vault kv get secret/data/db/booksdb/dev
+vault kv get secret/data/db/booksdb/qa
+vault kv get secret/data/db/booksdb/prod
+
+vault kv get secret/data/api/keys/dev
+vault kv get secret/data/api/keys/qa
+vault kv get secret/data/api/keys/prod
+
 echo "Secret initialization complete."
-
 ```
