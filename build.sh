@@ -14,12 +14,12 @@ build_service() {
   local service_name=$1
   echo "----------  $service_name: clean and build  ----------"
   # Run in a subshell to avoid changing the script's main directory
-  (cd "$service_name" && ./gradlew build)
+  (cd "$service_name" && ./gradlew build --build-cache)
 }
 
 build_service "eureka-discovery"
 build_service "user-service"
-#build_service "books-service"
+build_service "books-service"
 build_service "api-gateway"
 #build_service "cloud-config-service"
 

@@ -122,9 +122,7 @@ services:
       - "9121:9121"
     environment:
       - SPRING_APP_NAME=user-service
-#      - SPRING_DATASOURCE_USERNAME=${secret/data/db/userdb/dev/user}
-#      - SPRING_DATASOURCE_PASSWORD=${secret/data/db/userdb/dev/user}
-#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/userdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+      - SERVER_PORT=9121
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
       - USER_SESSION_TIMEOUT=5m
       - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
@@ -141,6 +139,37 @@ services:
 #      timeout: 5s
 #      retries: 5
 #      start_period: 40s
+    networks:
+      - apps-network
+
+  # books microservice
+  books-service:
+    image: books-service:latest
+    container_name: books-service
+    depends_on:
+      - vault
+      - mariadb
+      - eureka-discovery-service
+    ports:
+      - "9151:9151"
+    environment:
+      - SPRING_APP_NAME=books-service
+      - SERVER_PORT=9151
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - ROOT_LOG_LEVEL=info
+      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
+      - SPRING_ACTIVE_PROFILE=dev
+      - VAULT_HOST=vault # vault service name in compose.yaml
+      - VAULT_PORT=8200
+      - VAULT_TOKEN=srikanth
+    #    healthcheck:
+    #      test: [ "CMD", "curl", "-f", "http://localhost:9151/actuator/health" ]
+    #      interval: 10s
+    #      timeout: 5s
+    #      retries: 5
+    #      start_period: 40s
+
     networks:
       - apps-network
 
@@ -199,31 +228,6 @@ services:
 #    networks:
 #      - apps-network
 
-#  # books microservice
-#  books-service:
-#    image: books-service:latest
-#    container_name: books-service
-#    depends_on:
-#      - vault
-#      - mariadb
-#      - eureka-discovery-service
-#    ports:
-#      - "9151:9151"
-#    environment:
-#      - SPRING_APP_NAME=books-service
-#      - SPRING_DATASOURCE_USERNAME=theuser
-#      - SPRING_DATASOURCE_PASSWORD=theuser
-#      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/booksdb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-#      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-#      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-#      - ROOT_LOG_LEVEL=info
-#      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
-#      - SPRING_ACTIVE_PROFILE=dev
-#      - VAULT_HOST=vault # vault service name in compose.yaml
-#      - VAULT_PORT=8200
-#      - VAULT_TOKEN=srikanth
-#    networks:
-#      - apps-network
 
 volumes:
   mariadb:

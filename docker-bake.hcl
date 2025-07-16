@@ -4,8 +4,8 @@ group "default" {
   targets = [
     "eureka-discovery-service",
     "user-service",
-    # "books-service",
-    "api-gateway",
+    "books-service",
+    "api-gateway"
     # "cloud-config-service"
   ]
 }
