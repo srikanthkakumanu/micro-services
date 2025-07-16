@@ -124,12 +124,15 @@ services:
       - SPRING_APP_NAME=user-service
       - SERVER_PORT=9121
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - SPRING_JPA_HIBERNATE_SHOW_SQL=false
+      - SPRING_JPA_HIBERNATE_FORMAT_SQL=false
       - USER_SESSION_TIMEOUT=5m
       - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
       - ROOT_LOG_LEVEL=info
       - SPRING_SECURITY_LOG_LEVEL=info # Remove in Production
       - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
       - SPRING_ACTIVE_PROFILE=dev
+      - KEY_SECRET_TTL=700000
       - VAULT_HOST=vault
       - VAULT_PORT=8200
       - VAULT_TOKEN=srikanth
@@ -156,6 +159,8 @@ services:
       - SPRING_APP_NAME=books-service
       - SERVER_PORT=9151
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - SPRING_JPA_HIBERNATE_SHOW_SQL=false
+      - SPRING_JPA_HIBERNATE_FORMAT_SQL=false
       - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
       - ROOT_LOG_LEVEL=info
       - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
