@@ -14,7 +14,7 @@ services:
     environment:
       - VAULT_DEV_ROOT_TOKEN_ID=srikanth # WARNING: For development only!
       - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
-#      - VAULT_LOG_LEVEL=debug
+      #      - VAULT_LOG_LEVEL=debug
       # This address is used by the vault CLI inside the container
       - VAULT_ADDR=http://127.0.0.1:8200
     cap_add:
@@ -32,33 +32,15 @@ services:
       - vault:/vault/data
     # Use the script as the entrypoint for the container
     entrypoint: /usr/local/bin/vault-entrypoint.sh
+    logging: # To disable logs to print in the container
+      driver: none
     networks:
       - apps-network
-
-#  ## Vault Prod
-#  vault:
-#    image: hashicorp/vault:latest
-#    container_name: vault
-#    restart: on-failure
-#    ports:
-#      - "8200:8200"
-##    environment:
-##      - VAULT_DEV_ROOT_TOKEN_ID=srikanth # WARNING: For development only!
-##      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
-#    cap_add:
-#      - IPC_LOCK
-#    volumes:
-#      - vault:/vault/data
-#      - ./vault/config:/home/skakumanu/practice/micro-services/vault/config
-#    command: vault server -config=/home/skakumanu/practice/micro-services/vault/config/vault-prod.hcl
-#    depends_on:
-#      - mariadb
-#    networks:
-#      - tools
 
   # MariaDB
   mariadb:
     image: mariadb:latest
+    container_name: mariadb
     restart: on-failure
     environment:
       MARIADB_ROOT_PASSWORD: root
@@ -67,129 +49,106 @@ services:
     volumes:
       - mariadb:/var/lib/mysql
       - ./mariadb-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: # To disable logs to print in the container
+      driver: none
     networks:
       - apps-network
 
   # UI for MariaDB/MySQL
   phpmyadmin:
     image: phpmyadmin
+    container_name: phpmyadmin
     restart: on-failure
     ports:
       - "40001:80"
     environment:
       PMA_HOST: mariadb
       PMA_PORT: 3306
+    depends_on:
+      mariadb:
+        condition: service_healthy
     networks:
       - apps-network
 
   # Eureka-Discovery-service
   eureka-discovery-service:
-    image: eureka-discovery-service:latest # Changed from 'build' to 'image'
+    image: eureka-discovery-service:latest
     container_name: eureka-discovery-service
     depends_on:
       vault:
         condition: service_healthy
       mariadb:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "9111:9111"
     environment:
       - EUREKA_INSTANCE_HOSTNAME=eureka-discovery-service
-      - EUREKA_INSTANCE_PREFER_IPADDRESS=true
+      - EUREKA_INSTANCE_PREFER_IPADDRESS=true  # Replace the value with false to use hostnames
       - SPRING_ACTIVE_PROFILE=dev
       - SERVER_PORT=9111
-#    healthcheck:
-#      test: [ "CMD", "curl", "-f", "http://localhost:9111/actuator/health" ]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 5
-#      start_period: 30s
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9111/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - apps-network
 
-  # User microservice
-  user-service:
-    image: user-service:latest # Changed from 'build' to 'image'
-    container_name: user-service
+  # Cloud Config Server Service
+  cloud-config-service:
+    image: cloud-config-service:latest
+    container_name: cloud-config-service
     depends_on:
       vault:
         condition: service_healthy
       mariadb:
-        condition: service_started
+        condition: service_healthy
       eureka-discovery-service:
         condition: service_started
+      api-gateway:
+        condition: service_started
     ports:
-      - "9121:9121"
+      - "9311:9311"
+    volumes:
+      - ./service-configs:/home/skakumanu/practice/micro-services/service-configs
     environment:
-      - SPRING_APP_NAME=user-service
-      - SERVER_PORT=9121
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-      - SPRING_JPA_HIBERNATE_SHOW_SQL=false
-      - SPRING_JPA_HIBERNATE_FORMAT_SQL=false
-      - USER_SESSION_TIMEOUT=5m
+      - SPRING_APP_NAME=cloud-config-service
+      - SERVER_PORT=9311
+      - ROOT_LOG_LEVEL=info
+      - SPRING_ACTIVE_PROFILE=dev,native
+      - SERVLET_CONTEXT_PATH=/config
       - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-#      - ROOT_LOG_LEVEL=info
-#      - SPRING_SECURITY_LOG_LEVEL=info # Remove in Production
-#      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
-      - SPRING_ACTIVE_PROFILE=dev
-      - JWT_EXPIRY_TTL=700000
       - VAULT_HOST=vault
       - VAULT_PORT=8200
       - VAULT_TOKEN=srikanth
-#    healthcheck:
-#      test: [ "CMD", "curl", "-f", "http://localhost:9121/actuator/health" ]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 5
-#      start_period: 40s
-    networks:
-      - apps-network
-
-  # books microservice
-  books-service:
-    image: books-service:latest
-    container_name: books-service
-    depends_on:
-      - vault
-      - mariadb
-      - eureka-discovery-service
-    ports:
-      - "9151:9151"
-    environment:
-      - SPRING_APP_NAME=books-service
-      - SERVER_PORT=9151
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-      - SPRING_JPA_HIBERNATE_SHOW_SQL=false
-      - SPRING_JPA_HIBERNATE_FORMAT_SQL=false
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-#      - ROOT_LOG_LEVEL=info
-#      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
-      - SPRING_ACTIVE_PROFILE=dev
-      - VAULT_HOST=vault # vault service name in compose.yaml
-      - VAULT_PORT=8200
-      - VAULT_TOKEN=srikanth
-    #    healthcheck:
-    #      test: [ "CMD", "curl", "-f", "http://localhost:9151/actuator/health" ]
-    #      interval: 10s
-    #      timeout: 5s
-    #      retries: 5
-    #      start_period: 40s
-
+      - GITHUB_URL=https://github.com/srikanthkakumanu/service-configs.git
+      - FILE_SYSTEM_URL=./service-configs
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9311/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     networks:
       - apps-network
 
   # API Gateway
   api-gateway:
-    image: api-gateway:latest # Changed from 'build' to 'image'
+    image: api-gateway:latest
     container_name: api-gateway
     depends_on:
       vault:
         condition: service_healthy
       mariadb:
-        condition: service_started
+        condition: service_healthy
       eureka-discovery-service:
-        condition: service_started
-      user-service:
         condition: service_started
     ports:
       - "9211:9211"
@@ -198,9 +157,7 @@ services:
       - SERVER_PORT=9211
       - SPRING_ACTIVE_PROFILE=dev
       - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-#      - ROOT_LOG_LEVEL=info
-#      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
-      - VAULT_HOST=vault # vault service name in compose.yaml
+      - VAULT_HOST=vault
       - VAULT_PORT=8200
       - VAULT_TOKEN=srikanth
     healthcheck:
@@ -212,27 +169,81 @@ services:
     networks:
       - apps-network
 
-#  # Cloud Config Server Service
-#  cloud-config-service:
-#    image: cloud-config-service:latest # Changed from 'build' to 'image'
-#    container_name: cloud-config-service
-##    depends_on:
-##      - vault
-##      - mariadb
-##      - eureka-discovery-service
-##      - user-service
-#    ports:
-#      - "9311:9311"
-#    environment:
-#      - SPRING_APP_NAME=cloud-config-service
-#      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-#      - ROOT_LOG_LEVEL=info
-#      - LOG_PATTERN_CONSOLE=%green(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %blue(-%5level) %red([%thread]) %magenta(---){faint} %yellow(%logger{15}) - %msg%n
-#      - SPRING_ACTIVE_PROFILE=dev
-#      - SERVLET_CONTEXT_PATH=/config
-#    networks:
-#      - apps-network
+  # User microservice
+  user-service:
+    image: user-service:latest
+    container_name: user-service
+    depends_on:
+      vault:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+      eureka-discovery-service:
+        condition: service_started
+      api-gateway:
+        condition: service_started
+      cloud-config-service:
+        condition: service_started
+    ports:
+      - "9121:9121"
+    environment:
+      - SPRING_APP_NAME=user-service
+      - SERVER_PORT=9121
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - SPRING_JPA_HIBERNATE_SHOW_SQL=false
+      - SPRING_JPA_HIBERNATE_FORMAT_SQL=false
+      - USER_SESSION_TIMEOUT=5m
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - SPRING_ACTIVE_PROFILE=dev
+      - JWT_EXPIRY_TTL=700000
+      - VAULT_HOST=vault
+      - VAULT_PORT=8200
+      - VAULT_TOKEN=srikanth
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9121/actuator/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - apps-network
 
+  # books microservice
+  books-service:
+    image: books-service:latest
+    container_name: books-service
+    depends_on:
+      vault:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+      eureka-discovery-service:
+        condition: service_started
+      api-gateway:
+        condition: service_started
+      cloud-config-service:
+        condition: service_started
+    ports:
+      - "9151:9151"
+    environment:
+      - SPRING_APP_NAME=books-service
+      - SERVER_PORT=9151
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - SPRING_JPA_HIBERNATE_SHOW_SQL=false
+      - SPRING_JPA_HIBERNATE_FORMAT_SQL=false
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - SPRING_ACTIVE_PROFILE=dev
+      - VAULT_HOST=vault
+      - VAULT_PORT=8200
+      - VAULT_TOKEN=srikanth
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9151/actuator/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 70s
+    networks:
+      - apps-network
 
 volumes:
   mariadb:
@@ -243,3 +254,15 @@ volumes:
 networks:
   apps-network:
     driver: bridge
+    # Explicitly configure the network for better DNS resolution
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
+
+#networks:
+#  apps-network:
+#    driver: bridge
+#    ipam:
+#      config:
+#        - subnet: 172.20.0.0/16

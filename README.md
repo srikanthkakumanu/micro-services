@@ -7,6 +7,8 @@ To run the Docker compose successfully, Git clone all microservices in this dire
 - user-service
 - eureka-discovery (service discovery)
 - api-gateway (API gateway & Load Balancer)
+- service-configs (Private GitHub repo of application YAML of all microservices)
+- cloud-config-service (Centralized Cloud Config Server)
 - todo-service
 - video-service
 - books-service

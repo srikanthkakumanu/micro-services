@@ -1,8 +1,8 @@
 echo "Gradle: clean & build started.."
 
 cls
-echo "eureka-discovery: clean and build"
-cd eureka-discovery
+echo "eureka-discovery-service: clean and build"
+cd eureka-discovery-service
 gradle clean build
 cd ..
 

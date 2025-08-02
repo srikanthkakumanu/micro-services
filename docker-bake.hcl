@@ -3,10 +3,10 @@
 group "default" {
   targets = [
     "eureka-discovery-service",
+    "api-gateway",
+    "cloud-config-service",
     "user-service",
-    "books-service",
-    "api-gateway"
-    # "cloud-config-service"
+    "books-service"
   ]
 }
 
@@ -18,7 +18,7 @@ variable "VERSION" {
 # Build definition for the Eureka Discovery Service
 target "eureka-discovery-service" {
   # The directory containing the Dockerfile
-  context = "./eureka-discovery"
+  context = "./eureka-discovery-service"
   # The name and tag for the final image
   tags    = ["eureka-discovery-service:latest"]
   # Build arguments passed to the Dockerfile
