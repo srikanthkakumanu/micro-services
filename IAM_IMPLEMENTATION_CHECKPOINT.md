@@ -649,3 +649,26 @@ Full legacy infrastructure/Vault/Config/Eureka combined startup remains separate
 unverified; existing platform blockers are documented, not fixed by this redesign.
 
 Commits/push are next; do not include unrelated pending .gitignore or other-service edits.
+
+## Reviews GitHub Completion (2026-10-04)
+
+Reviews redesign committed and pushed to master in the respective repositories:
+- reviews-service: ab2a1a3 (renamed existing GitHub repository, origin updated)
+- service-configs: f80a1a7 (new reviews YAML contracts)
+- api-gateway: c4b54ac (authenticated reviews route)
+- micro-services: 56c1828 (deployment/provisioning/build/clone wiring and checkpoint)
+
+Final tests: 32 unit/MVC/catalog-client and 4 PostgreSQL integration tests passed.
+Both valid end-to-end and catalog-outage/no-save smoke checks passed with actual
+Keycloak JWTs through the gateway; Java 27 Docker image/health verification passed.
+Temporary test containers are stopped. No volumes/data were deleted.
+Implementation plan in Downloads includes the reviews domain replacement addendum.
+Final deployment-documentation corrections are being committed/pushed separately.
+
+Reviews, configuration and gateway working trees are clean before these final docs.
+In micro-services, earlier .gitignore and unrelated auth/video clone-helper additions
+remain uncommitted intentionally. Do not revert or accidentally stage them.
+Ignored Vault seed is updated locally but not pushed; securely recreate it when cloning.
+All older pause/WIP/todoadmin decisions in checkpoint history are superseded.
+Next platform work is the documented legacy infrastructure/Config/Vault/Eureka and
+remaining User/Auth integration alignment, not another to-do migration.
