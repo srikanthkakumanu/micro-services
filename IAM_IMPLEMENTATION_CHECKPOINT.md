@@ -409,7 +409,7 @@ rg -n "api-key|apiKey|key-secret|JWT_SECRET|eclipse-temurin:21|mariadb|MariaDB|m
 
 ## Git Commit Checkpoint (2026-10-04)
 
-Each repository was committed independently using its own Git configuration. No commits were pushed.
+Each repository was committed independently using its own Git configuration and pushed to origin/master.
 
 | Repository | Implementation Commit |
 | --- | --- |
@@ -426,7 +426,9 @@ Each repository was committed independently using its own Git configuration. No 
 
 auth-service now has its own root .git directory and local user.name/user.email configuration,
 matching the identity in the other services. Build/IDE artifacts are ignored; domain/port/out is tracked.
-No remote has been configured for the new auth-service repository.
+auth-service origin is https://github.com/srikanthkakumanu/auth-service.git; the new GitHub repository is private.
+Its master branch tracks origin/master. Existing service origin URLs were preserved; temporary HTTPS
+credential-helper settings used GH_TOKEN for authenticated pushes without embedding the token in URLs.
 
 The Vault seed file micro-services/vault/config/init-vault-secrets.sh remains local and uncommitted
 because micro-services/.gitignore explicitly excludes it. Preserve or securely recreate it when resuming
@@ -434,3 +436,10 @@ on another machine. The Downloads implementation plan and workspace-level checkp
 a versioned copy of this checkpoint is saved in micro-services/IAM_IMPLEMENTATION_CHECKPOINT.md.
 
 Next implementation task remains todo-service; no feature migration was started there.
+
+## GitHub Push Checkpoint (2026-10-04)
+
+All ten service/config/platform repositories were pushed successfully to origin/master.
+micro-services also includes commit a1ecc53, which records the implementation checkpoint.
+The subsequent checkpoint update records the GitHub push status in the same repository.
+The ignored local Vault seed script remains uncommitted and was not pushed.
