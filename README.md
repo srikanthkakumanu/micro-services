@@ -163,3 +163,113 @@ publishes 45432. Gateway REVIEWS_SERVICE_URI defaults to http://localhost:9171 a
 shared Compose sets http://reviews-service:9171. Use postgres-init/02-reviews.sql
 from micro-services for additive provisioning on existing volumes. The ignored Vault
 seed now includes secret/data/db/reviewsdb for dev/qa/prod. Task APIs are retired.
+
+## Repository Contents
+
+| Path | Purpose |
+| --- | --- |
+| `compose.yml` | Shared local platform: Vault, PostgreSQL, Keycloak, Eureka, Config Server, gateway, and business services. |
+| `docker-bake.hcl` | Multi-image Buildx targets for all sibling service Dockerfiles. |
+| `build.sh` / `build.bat` | Convenience build scripts that invoke sibling Gradle wrappers and Bake. |
+| `clone_repos.sh` / `clone_repos.bat` | Historical clone helpers; verify repository names/access before relying on them. |
+| `postgres-init/init.sql` | Initial shared PostgreSQL databases, roles, grants, and default privileges. |
+| `postgres-init/02-reviews.sql` | Additive reviews database/role/grant provisioning for existing platform volumes. |
+| `vault/config/vault-entrypoint.sh` | Development Vault bootstrap wrapper. |
+| `vault/config/init-vault-secrets.sh` | Ignored local secret seed, required for a fresh dev Vault. |
+| `IAM_IMPLEMENTATION_CHECKPOINT.md` | Running checkpoint of migration status, smoke results, and blockers. |
+
+## Shared Runtime Topology
+
+```text
+client
+  -> api-gateway:9211
+       -> user-service:9121
+       -> auth-service:9141
+       -> books-service:9151
+       -> video-service:9161
+       -> reviews-service:9171
+
+business services
+  -> keycloak:8080 for JWT issuer/JWKS and identity admin calls
+  -> postgres:5432 for service-owned databases
+  -> vault:8200 for secrets when enabled
+  -> cloud-config-service:9311/config for shared YAML when enabled
+  -> eureka-discovery-service:9111/eureka for discovery when enabled
+```
+
+Canonical service databases:
+
+| Database | Owner service | Runtime role | Migration role |
+| --- | --- | --- | --- |
+| `userdb` | User Service | `theuser` | `useradmin` |
+| `authdb` | Auth Service | `theuser` | `authadmin` |
+| `booksdb` | Books Service | `theuser` | `bookadmin` |
+| `videodb` | Video Service | `theuser` | `videoadmin` |
+| `reviewsdb` | Reviews Service | `theuser` | `reviewsadmin` |
+
+## Command Cookbook
+
+Validate definitions without starting anything:
+
+```bash
+docker compose config --quiet
+docker buildx bake -f docker-bake.hcl --print
+```
+
+Build all sibling JARs and images:
+
+```bash
+bash ./build.sh
+```
+
+Build a single image after its service JAR exists:
+
+```bash
+docker buildx bake -f docker-bake.hcl api-gateway
+docker buildx bake -f docker-bake.hcl reviews-service
+```
+
+Start the shared platform:
+
+```bash
+docker compose up -d
+docker compose ps
+```
+
+Inspect important logs:
+
+```bash
+docker compose logs -f vault
+docker compose logs -f cloud-config-service
+docker compose logs -f api-gateway
+docker compose logs -f reviews-service
+```
+
+Basic unauthenticated checks:
+
+```bash
+curl http://localhost:9111/
+curl http://localhost:9311/config/actuator/health
+curl http://localhost:9211/actuator/health
+curl http://localhost:9211/api/users/ping
+```
+
+Apply reviews provisioning to an existing PostgreSQL volume:
+
+```bash
+docker compose exec -T postgres psql -U root -d postgres -v ON_ERROR_STOP=1 < postgres-init/02-reviews.sql
+```
+
+Stop without deleting persistent data:
+
+```bash
+docker compose stop
+```
+
+## Operating Rules
+
+- Keep all service repositories as siblings of `micro-services`; relative Docker build contexts depend on that shape.
+- Do not run service-local Compose stacks and the shared platform for the same service on the same ports at the same time.
+- Do not delete database volumes to “fix” provisioning without a data migration decision.
+- A successful `docker compose config` or Bake print validates structure only; it does not prove Keycloak issuer alignment, Vault seed completeness, Flyway credentials, or gateway route correctness.
+- Update this README, [service-configs](../service-configs/README.md), and the affected service README together when changing ports, database names, Vault paths, or gateway routes.

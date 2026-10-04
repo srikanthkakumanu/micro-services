@@ -1,3 +1,6 @@
 .idea
 *.log
 /vault/config/init-vault-secrets.sh
+
+# VS Code workspace settings
+.vscode/
