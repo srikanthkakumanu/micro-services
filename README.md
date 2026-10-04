@@ -76,7 +76,7 @@ Do not start the same API in shared and standalone modes simultaneously on the s
 
 ## Database And Vault Provisioning
 
-`postgres-init/init.sql` creates `keycloak`, `vaultdb`, `userdb`, `authdb`, `booksdb`, `videodb`, and `reviewsdb` and provisions database roles/grants.
+`postgres-init/init.sql` provisions the original databases and roles, including preserved `tododb`. `postgres-init/02-reviews.sql` adds `reviewsdb` and `reviewsadmin` with runtime grants; it can also be explicitly applied to existing volumes.
 
 Use the same role/password contract on every PostgreSQL instance, matching configured Vault values. Runtime role: `theuser`. Business migration roles: `useradmin`, `authadmin`, `bookadmin`, `videoadmin`, `reviewsadmin`. Vault database administration uses `vaultadmin`. These role names are not instructions to use an admin account for ordinary runtime queries.
 
@@ -109,7 +109,7 @@ Do not run it with `sh`: it uses Bash features. Pre-build JARs are required by t
 docker buildx bake -f docker-bake.hcl
 ```
 
-Build order is Eureka, gateway, Config Server, user, auth, books, video, and to-do. The existing Gradle wrappers may require a Java 21 launcher while migrated Java code uses its Java 27 toolchain.
+Build order is Eureka, gateway, Config Server, user, auth, books, video, and reviews. Older Gradle wrappers may require a Java 21 launcher; Reviews Service's Gradle 9.8.0 wrapper runs directly on Java 27.
 
 ## Start And Inspect
 
@@ -138,7 +138,6 @@ Stopping preserves database volumes. Avoid destructive volume removal when resum
 
 ## Known Full-Stack Blockers
 
-- Reviews Service has been redesigned for PostgreSQL; old task databases remain preserved.
 - Config Server's mandatory legacy API-key Vault import and `/config` context conflict with newer secret/layout and some current client/health-check URLs.
 - User Service lacks the configuration/discovery clients needed for its shared YAML settings and retains divergent datasource defaults.
 - Gateway discovery defaults off; its Auth Service predicates do not match `/api/v1/...`. Books/video routes are absent; reviews routes are implemented.

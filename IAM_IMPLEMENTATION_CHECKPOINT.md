@@ -663,7 +663,7 @@ Both valid end-to-end and catalog-outage/no-save smoke checks passed with actual
 Keycloak JWTs through the gateway; Java 27 Docker image/health verification passed.
 Temporary test containers are stopped. No volumes/data were deleted.
 Implementation plan in Downloads includes the reviews domain replacement addendum.
-Final deployment-documentation corrections are being committed/pushed separately.
+Final deployment-documentation corrections are recorded in separate documentation commits.
 
 Reviews, configuration and gateway working trees are clean before these final docs.
 In micro-services, earlier .gitignore and unrelated auth/video clone-helper additions
