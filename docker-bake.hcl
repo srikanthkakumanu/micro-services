@@ -9,7 +9,7 @@ group "default" {
     "auth-service",
     "books-service",
     "video-service",
-    "todo-service"
+    "reviews-service"
   ]
 }
 
@@ -83,11 +83,11 @@ target "video-service" {
 }
 
 # Build definition for the ToDo Service.
-target "todo-service" {
-  context = "../todo-service"
-  tags    = ["todo-service:latest"]
+target "reviews-service" {
+  context = "../reviews-service"
+  tags    = ["reviews-service:latest"]
   args = {
-    PROJECT_NAME    = "todo-service"
+    PROJECT_NAME    = "reviews-service"
     PROJECT_VERSION = "${VERSION}"
   }
 }

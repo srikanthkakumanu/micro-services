@@ -27,7 +27,7 @@ build_service "user-service"
 build_service "auth-service"
 build_service "books-service"
 build_service "video-service"
-build_service "todo-service"
+build_service "reviews-service"
 
 echo "----------  Gradle: clean & build completed..  ----------"
 

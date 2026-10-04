@@ -1,137 +1,166 @@
-It is a collection of all microservice modules.
+# Microservices Platform
 
-To run the Docker compose successfully, Git clone all microservices in this directory.
+This repository orchestrates the local Keycloak-backed user-management and catalog platform. It owns Compose deployment, image build coordination, PostgreSQL initialization, and Vault startup wiring. Application code lives in independent sibling Git repositories.
 
-### List of Microservices
+The complete platform is still being migrated. Port/configuration validation has passed, but a clean end-to-end container startup is not yet verified; known blockers are listed below.
 
-- user-service
-- auth-service
-- eureka-discovery (service discovery)
-- api-gateway (API gateway & Load Balancer)
-- service-configs (Private GitHub repo of application YAML of all microservices)
-- cloud-config-service (Centralized Cloud Config Server)
-- todo-service
-- video-service
-- books-service
+## Services And Responsibilities
 
-## Cloning Micro-service Repositories
+| Repository / service | Responsibility | HTTP port |
+| --- | --- | --- |
+| [eureka-discovery](../eureka-discovery/README.md) | Registry; application name eureka-discovery-service | 9111 |
+| [user-service](../user-service/README.md) | User/profile data and Keycloak lifecycle coordination | 9121 |
+| [auth-service](../auth-service/README.md) | Roles/permissions catalog; future policy evaluation | 9141 |
+| [books-service](../books-service/README.md) | Book/author metadata and ownership | 9151 |
+| [video-service](../video-service/README.md) | Video metadata/completion and ownership | 9161 |
+| [reviews-service](../reviews-service/README.md) | Book/video reviews and ratings | 9171 |
+| [api-gateway](../api-gateway/README.md) | Reactive secured HTTP routing | 9211 |
+| [cloud-config-service](../cloud-config-service/README.md) | Central configuration server | 9311 |
+| [service-configs](../service-configs/README.md) | Shared YAML; not an executable service | None |
 
-To clone all micro-service repositories, you can use the following script.
+## Architecture
 
-```bash
-sh ./clone_repos.sh
+Clients authenticate with Keycloak and send access tokens through the gateway. Downstream services validate those tokens independently and enforce their own domain rules. User Service calls Keycloak Admin APIs for identity changes; Auth Service stores fine-grained authorization metadata separately.
+
+Each business context owns its PostgreSQL database. Flyway uses a context-specific migration role, while runtime access uses the configured shared runtime role. Vault supplies secrets, Config Server supplies non-secret application/profile configuration, and Eureka supplies instance discovery when enabled.
+
+Domain-driven design and clean architecture are the target: pure domain rules, application orchestration/ports, and infrastructure adapters. Books, video, and the new authorization catalog have migrated core boundaries; User Service still needs further refactoring; Reviews Service uses pure-domain ports/adapters. Infrastructure services should remain focused infrastructure components.
+
+## Workspace And Prerequisites
+
+All repositories must be siblings because Bake and Compose use relative paths:
+
+```text
+practice/
+  micro-services/
+  service-configs/
+  eureka-discovery/
+  cloud-config-service/
+  api-gateway/
+  user-service/
+  auth-service/
+  books-service/
+  video-service/
+  reviews-service/
 ```
 
-## Building Micro-service Jars & Docker Images
+Requirements: Docker with Compose and Buildx, Java 27 for migrated application toolchains, a supported Gradle launcher JVM (Java 21 is used in the existing verification workflow), and Git. Each Java service has its own `gradlew` and `gradle/` directory. Do not introduce a shared wrapper.
 
-To build Jars for micro services and building docker images (uses Docker bake), you can use the following script. *docker-bake.hcl* contains all the microservice declarations.
+Auth Service's GitHub repository is private, so fresh cloning requires authorized access. Existing clone helper scripts are outdated/incomplete and do not establish this sibling layout reliably; clone the listed repositories into the workspace parent instead.
 
-Note: You comment the unwanted micro service in this script to omit them from the execution.
+## Current Build Baselines
+
+User, auth, gateway, books, and video use Java 27 / Boot 4.1.1. Reviews uses Java 27 / Boot 4.1.1 with Gradle 9.8.0; Config Server and Eureka still build with Java 21 / Boot 3.4.x. Spring Cloud versions differ until those migrations are completed. Docker runtime updates alone do not change build baselines.
+
+The agreed target is Java 27, compatible current Spring Boot/modules, Groovy Gradle DSL, independent wrappers, MapStruct where mappings are needed, and supported modern Java/fluent APIs where appropriate.
+
+## Ports And Deployment Modes
+
+| Shared infrastructure | Published port |
+| --- | --- |
+| PostgreSQL | 5432 |
+| Keycloak | 8080 |
+| Vault | 8200 |
+
+Service-local Compose dependency ports are isolated:
+
+| Local stack | PostgreSQL host port | Keycloak host port |
+| --- | --- | --- |
+| User | 15432 | 18080 |
+| Books | 25432 | 28080 |
+| Video | 35432 | 38080 |
+
+Internal PostgreSQL/Keycloak ports remain 5432/8080. Reviews' local PostgreSQL publishes 45432; its API remains 9171. Service APIs retain their canonical HTTP ports in either deployment mode.
+
+Do not start the same API in shared and standalone modes simultaneously on the same port/container name. Port environment overrides can reintroduce collisions; re-render Compose after changing them.
+
+## Database And Vault Provisioning
+
+`postgres-init/init.sql` creates `keycloak`, `vaultdb`, `userdb`, `authdb`, `booksdb`, `videodb`, and `reviewsdb` and provisions database roles/grants.
+
+Use the same role/password contract on every PostgreSQL instance, matching configured Vault values. Runtime role: `theuser`. Business migration roles: `useradmin`, `authadmin`, `bookadmin`, `videoadmin`, `reviewsadmin`. Vault database administration uses `vaultadmin`. These role names are not instructions to use an admin account for ordinary runtime queries.
+
+Initialization runs only for a fresh PostgreSQL volume. Never delete an existing volume just to re-run provisioning without a data-preservation/migration plan.
+
+Compose mounts `vault/config/init-vault-secrets.sh`. That file is deliberately ignored and is not available from a fresh clone. Recreate it securely with the database and Keycloak secret keys expected by [service-configs](../service-configs/README.md), and preserve a secure copy outside Git. Vault's entrypoint calls it after starting the development server.
+
+Keycloak needs the `company-platform` realm, appropriate clients/roles, and the User Service administrative service account. Replace the administrative client-secret placeholder before identity operations can work. Development-mode Vault and development credentials are not production deployment settings.
+
+## Build And Validate
+
+From this repository:
 
 ```bash
-sh ./buld.sh
+docker compose config --quiet
+docker buildx bake -f docker-bake.hcl --print
 ```
 
-## Running micro-services and & DB
+The first command validates Compose structure; the second displays build targets without building. Neither proves a healthy runtime.
 
-You can use the following command: ```docker compose up -d```. It runs the microservices in detached mode.
-
-## Redirect all console logs to file
-
-We can redirect all the console logs to a specific file by using the following command.
+`build.sh` enters each sibling service and uses its own wrapper, then builds all eight images through Bake:
 
 ```bash
-
-docker compose logs -f -t > console_log.log
+bash ./build.sh
 ```
 
-## Setting Up Vault for Secret Management
-
-1. Run the following commands:
-
-   ``````bash
-   chmod +x /home/skakumanu/practice/micro-services/vault/config/init-vault-secrets.sh
-   chmod +x /home/skakumanu/practice/micro-services/vault/config/vault-entrypoint.sh
-   ``````
-2. `docker compose up` - Starts the vault server/service in DEV mode. It also executes *./vault/config/vault-entrypoint.sh* that configures all the required secrets.
-
-Note: *vault-prod.hcl* is used only in PROD environment. PostgreSQL is the standard relational database for service data, and Vault remains the secure source for database and Keycloak secrets.
-
-Useful Links:
-
-1. [https://myros.net/hashicorp-vault-docker-compose-part1](https://https://myros.net/hashicorp-vault-docker-compose-part1)
-2. https://myros.net/hashicorp-vault-docker-compose-part2
-
-
-
-
-
-**init-vault-secrets.sh** (Sample file)
+Do not run it with `sh`: it uses Bash features. Pre-build JARs are required by the Dockerfiles. To build images only after preparing those JARs:
 
 ```bash
-#!/bin/sh
-# Exit immediately if a command exits with a non-zero status.
-set -e
-
-# This script assumes that VAULT_ADDR and VAULT_TOKEN (or VAULT_DEV_ROOT_TOKEN_ID)
-# are already set in the environment from which it is called.
-
-echo "Initializing Vault with secrets..."
-
-# Create secrets
-
-# -- Root DB --
-vault kv put secret/data/db/root/dev user=root password=root profile=dev
-echo "Secret 'secret/data/db/root/dev' created."
-vault kv put secret/data/db/root/qa user=root password=root profile=qa
-echo "Secret 'secret/data/db/root/qa' created."
-vault kv put secret/data/db/root/prod user=root password=root profile=prod
-echo "Secret 'secret/data/db/root/prod' created."
-
-# -- Microservices & DB --
-# User Micro Service = DB
-vault kv put secret/data/db/userdb/dev user=theuser password=theuser flw-user=useradmin flw-password=useradmin db-name=userdb profile=dev
-echo "Secret 'secret/data/db/userdb/dev' created."
-vault kv put secret/data/db/userdb/qa user=theuser password=theuser flw-user=useradmin flw-password=useradmin db-name=userdb profile=qa
-echo "Secret 'secret/data/db/userdb/qa' created."
-vault kv put secret/data/db/userdb/prod user=theuser password=theuser flw-user=useradmin flw-password=useradmin db-name=userdb profile=prod
-echo "Secret 'secret/data/db/userdb/prod' created."
-
-# Books Micro Service - DB
-vault kv put secret/data/db/booksdb/dev user=theuser password=theuser flw-user=bookadmin flw-password=bookadmin db-name=booksdb profile=dev
-echo "Secret 'secret/data/db/booksdb/dev' created."
-vault kv put secret/data/db/booksdb/qa user=theuser password=theuser flw-user=bookadmin flw-password=bookadmin db-name=booksdb profile=qa
-echo "Secret 'secret/data/db/booksdb/qa' created."
-vault kv put secret/data/db/booksdb/prod user=theuser password=theuser flw-user=bookadmin flw-password=bookadmin db-name=booksdb profile=prod
-echo "Secret 'secret/data/db/booksdb/prod' created."
-
-# Auth, Video, and ToDo Micro Service DBs follow the same convention.
-vault kv put secret/data/db/authdb/dev user=theuser password=theuser flw-user=authadmin flw-password=authadmin db-name=authdb profile=dev
-vault kv put secret/data/db/videodb/dev user=theuser password=theuser flw-user=videoadmin flw-password=videoadmin db-name=videodb profile=dev
-vault kv put secret/data/db/tododb/dev user=theuser password=theuser flw-user=todoadmin flw-password=todoadmin db-name=tododb profile=dev
-
-# -- Keycloak --
-vault kv put secret/data/keycloak/dev realm=company-platform issuer-uri=http://keycloak:8080/realms/company-platform base-url=http://keycloak:8080 admin-client-id=user-service admin-client-secret=change-me profile=dev
-echo "Secret 'secret/data/keycloak/dev' created."
-
-
-# Verify secrets have been written
-echo "Verifying secrets..."
-vault kv get secret/data/db/root/dev
-vault kv get secret/data/db/root/qa
-vault kv get secret/data/db/root/prod
-
-vault kv get secret/data/db/userdb/dev
-vault kv get secret/data/db/userdb/qa
-vault kv get secret/data/db/userdb/prod
-
-vault kv get secret/data/db/booksdb/dev
-vault kv get secret/data/db/booksdb/qa
-vault kv get secret/data/db/booksdb/prod
-
-vault kv get secret/data/api/keys/dev
-vault kv get secret/data/api/keys/qa
-vault kv get secret/data/api/keys/prod
-
-echo "Secret initialization complete."
+docker buildx bake -f docker-bake.hcl
 ```
+
+Build order is Eureka, gateway, Config Server, user, auth, books, video, and to-do. The existing Gradle wrappers may require a Java 21 launcher while migrated Java code uses its Java 27 toolchain.
+
+## Start And Inspect
+
+Resolve the prerequisites/blockers below before expecting a healthy full deployment:
+
+```bash
+docker compose up -d
+docker compose ps
+docker compose logs -f api-gateway
+docker compose logs -f cloud-config-service
+```
+
+```bash
+curl http://localhost:9111/
+curl http://localhost:9311/config/actuator/health
+curl http://localhost:9211/api/users/ping
+```
+
+Protected business API checks require a genuine Keycloak token. A successful ping alone does not exercise ownership or administrative operations.
+
+```bash
+docker compose stop
+```
+
+Stopping preserves database volumes. Avoid destructive volume removal when resuming work.
+
+## Known Full-Stack Blockers
+
+- Reviews Service has been redesigned for PostgreSQL; old task databases remain preserved.
+- Config Server's mandatory legacy API-key Vault import and `/config` context conflict with newer secret/layout and some current client/health-check URLs.
+- User Service lacks the configuration/discovery clients needed for its shared YAML settings and retains divergent datasource defaults.
+- Gateway discovery defaults off; its Auth Service predicates do not match `/api/v1/...`. Books/video routes are absent; reviews routes are implemented.
+- Keycloak external and internal issuer hostnames need a single consistent issuer contract matching token `iss`.
+- Auth/User springdoc 2.8.5 compatibility with Boot 4 is unresolved.
+- Docker layered-JAR extraction, image health checks, and the complete container startup path require post-upgrade verification.
+- Fine-grained permission decisions/overrides and downstream enforcement are not implemented yet.
+
+## Verification And Resume
+
+The checkpoint records successful builds/tests for migrated services, including books (14 unit/MVC + 2 PostgreSQL integration tests), video (6 + 1), and auth (5 unit tests). PostgreSQL integration tests require Docker.
+
+The port audit parsed application/shared YAML and rendered all six Compose files, confirming canonical API ports and unique service-local dependency ports. It does not certify the unresolved runtime behavior above.
+
+[Implementation checkpoint](IAM_IMPLEMENTATION_CHECKPOINT.md) records completed work, known gaps, Git status, and the next implementation step. Update it after each meaningful implementation/verification milestone so work can resume reliably.
+
+## Reviews Integration
+
+Reviews Service uses PostgreSQL reviewsdb, runtime role theuser, and migration role
+reviewsadmin with the requested development password from Vault/config. The API is
+/api/v1/reviews on 9171; repeated book/video reviews are supported. Local PostgreSQL
+publishes 45432. Gateway REVIEWS_SERVICE_URI defaults to http://localhost:9171 and
+shared Compose sets http://reviews-service:9171. Use postgres-init/02-reviews.sql
+from micro-services for additive provisioning on existing volumes. The ignored Vault
+seed now includes secret/data/db/reviewsdb for dev/qa/prod. Task APIs are retired.

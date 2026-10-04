@@ -166,6 +166,7 @@ services:
       - SPRING_ACTIVE_PROFILE=dev
       - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
       - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/company-platform
+      - REVIEWS_SERVICE_URI=http://reviews-service:9171
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9211/actuator/health" ]
       interval: 10s
@@ -342,10 +343,10 @@ services:
     networks:
       - apps-network
 
-  # todo microservice
-  todo-service:
-    image: todo-service:latest
-    container_name: todo-service
+  # reviews microservice
+  reviews-service:
+    image: reviews-service:latest
+    container_name: reviews-service
     depends_on:
       vault:
         condition: service_healthy
@@ -362,13 +363,20 @@ services:
     ports:
       - "9171:9171"
     environment:
-      - SPRING_APP_NAME=todo-service
+      - SPRING_APP_NAME=reviews-service
       - SERVER_PORT=9171
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
       - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tododb
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/reviewsdb
       - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/company-platform
       - SPRING_ACTIVE_PROFILE=dev
+      - VAULT_ENABLED=true
+      - VAULT_URI=http://vault:8200
+      - CONFIG_ENABLED=true
+      - CONFIG_SERVER_URL=http://cloud-config-service:9311/config
+      - EUREKA_ENABLED=true
+      - BOOKS_SERVICE_URL=http://books-service:9151
+      - VIDEO_SERVICE_URL=http://video-service:9161
       - VAULT_HOST=vault
       - VAULT_PORT=8200
       - VAULT_TOKEN=srikanth

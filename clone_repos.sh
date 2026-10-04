@@ -6,3 +6,4 @@ git clone https://github.com/srikanthkakumanu/eureka-discovery-service.git
 git clone https://github.com/srikanthkakumanu/api-gateway.git
 git clone https://github.com/srikanthkakumanu/cloud-config-service.git
 git clone https://github.com/srikanthkakumanu/service-configs.git
+git clone https://github.com/srikanthkakumanu/reviews-service.git
