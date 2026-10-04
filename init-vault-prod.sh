@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This file is applicable only for Prod environments
-# This script configures Vault to manage a static user password in MariaDB.
+# This script configures Vault to manage a static user password in PostgreSQL.
 # It should be run AFTER `docker compose up` and AFTER the vault container is running.
 
 ### Only for Vault Dev environment
@@ -17,7 +17,7 @@ set -e # Exit immediately if a command exits with a non-zero status.
 echo "Note: Run this script only once after starting vault docker container"
 export VAULT_ADDR=http://localhost:8200
 
-echo "### Vault Setup for MariaDB Static Role ###"
+echo "### Vault Setup for PostgreSQL Static Role ###"
 echo
 
 # Step 1: Initialize Vault using JSON output for reliable parsing
@@ -54,13 +54,13 @@ vault login "$VAULT_TOKEN" > /dev/null
 # Step 4: Enable the database secrets engine
 echo "-> Enabling 'database' secrets engine..."
 # Use || true to prevent script from exiting if it's already enabled
-vault secrets enable -path=/var/lib/mysql database || true
+vault secrets enable -path=database/postgres database || true
 
-# Step 5: Configure Vault's connection to MariaDB
-echo "-> Configuring MariaDB connection for Vault..."
-vault write /var/lib/mysql \
-    plugin_name=mariadb-database-plugin \
-    connection_url="{{username}}:{{password}}@tcp(mariadb:3306)/" \
+# Step 5: Configure Vault's connection to PostgreSQL
+echo "-> Configuring PostgreSQL connection for Vault..."
+vault write database/postgres/config/root \
+    plugin_name=postgresql-database-plugin \
+    connection_url="postgresql://{{username}}:{{password}}@postgres:5432/postgres?sslmode=disable" \
     username="root" \
     password="root" \
     allowed_roles="vault-role"
@@ -68,23 +68,23 @@ vault write /var/lib/mysql \
 # Step 6: Create a static role for the pre-existing 'vaultadmin'
 # This role tells Vault how to manage the 'vaultadmin' account.
 echo "-> Creating static role 'vault-role'..."
-vault write /var/lib/mysql/roles/vault-role \
-    db_name=vaultdb \
+vault write database/postgres/static-roles/vault-role \
+    db_name=root \
     credential_type=static_account \
     username="vaultadmin" \
     rotation_period="2d" \
-    rotation_statements="ALTER USER '{{name}}'@'%' IDENTIFIED BY '{{password}}';"
+    rotation_statements="ALTER USER \"{{name}}\" WITH PASSWORD '{{password}}';"
 
 # Step 7: Test by reading the static credentials
 echo "-> Reading credentials for the static role..."
 # This will return the current password for 'vaultadmin'
-vault read /var/lib/mysql/roles/vault-role
+vault read database/postgres/static-creds/vault-role
 
 # Step 8: (Optional) Manually rotate the password now
 echo "-> Forcing an immediate rotation of the static user's password..."
-vault write -f /var/lib/mysql/rotate-role/vault-role
+vault write -f database/postgres/rotate-role/vault-role
 
 echo
 echo "### Configuration Complete! ###"
-echo "Vault is now managing the password for the 'vaultadmin' in MariaDB."
+echo "Vault is now managing the password for the 'vaultadmin' in PostgreSQL."
 echo "Applications can request these credentials from Vault at the path."

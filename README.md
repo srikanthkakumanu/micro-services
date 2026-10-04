@@ -5,6 +5,7 @@ To run the Docker compose successfully, Git clone all microservices in this dire
 ### List of Microservices
 
 - user-service
+- auth-service
 - eureka-discovery (service discovery)
 - api-gateway (API gateway & Load Balancer)
 - service-configs (Private GitHub repo of application YAML of all microservices)
@@ -54,7 +55,7 @@ docker compose logs -f -t > console_log.log
    ``````
 2. `docker compose up` - Starts the vault server/service in DEV mode. It also executes *./vault/config/vault-entrypoint.sh* that configures all the required secrets.
 
-Note: *vault-prod.hcl* is used only in PROD environment along with MariaDB as backup storage for secrets. init-vault-secrets.sh file contains sensitive secrets info hence it is added into .gitignore.
+Note: *vault-prod.hcl* is used only in PROD environment. PostgreSQL is the standard relational database for service data, and Vault remains the secure source for database and Keycloak secrets.
 
 Useful Links:
 
@@ -96,14 +97,6 @@ echo "Secret 'secret/data/db/userdb/qa' created."
 vault kv put secret/data/db/userdb/prod user=theuser password=theuser flw-user=useradmin flw-password=useradmin db-name=userdb profile=prod
 echo "Secret 'secret/data/db/userdb/prod' created."
 
-# User Micro Service - Security & Authentication
-vault kv put secret/data/ms/security/auth/dev auth-user=theuser auth-password=theuser profile=dev
-echo "Secret 'secret/data/ms/security/auth/dev' created."
-vault kv put secret/data/ms/security/auth/qa auth-user=theuser auth-password=theuser profile=qa
-echo "Secret 'secret/data/ms/security/auth/qa' created."
-vault kv put secret/data/ms/security/auth/prod auth-user=theuser auth-password=theuser profile=prod
-echo "Secret 'secret/data/ms/security/auth/prod' created."
-
 # Books Micro Service - DB
 vault kv put secret/data/db/booksdb/dev user=theuser password=theuser flw-user=bookadmin flw-password=bookadmin db-name=booksdb profile=dev
 echo "Secret 'secret/data/db/booksdb/dev' created."
@@ -112,13 +105,14 @@ echo "Secret 'secret/data/db/booksdb/qa' created."
 vault kv put secret/data/db/booksdb/prod user=theuser password=theuser flw-user=bookadmin flw-password=bookadmin db-name=booksdb profile=prod
 echo "Secret 'secret/data/db/booksdb/prod' created."
 
-# -- API --
-vault kv put secret/data/api/keys/dev gh-user=<your GitHub username> gh-password=<your GitHub password> api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=dev
-echo "Secret 'secret/data/api/keys/dev' created."
-vault kv put secret/data/api/keys/qa gh-user=<your GitHub username> gh-password=<your GitHub password> api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=qa
-echo "Secret 'secret/data/api/keys/qa' created."
-vault kv put secret/data/api/keys/prod gh-user=<your GitHub username> gh-password=<your GitHub password> api-key=apikey111,apikey222 key-secret=Secret123@@321terceSSecret123@@321terceS@321terceS profile=prod
-echo "Secret 'secret/data/api/keys/prod' created."
+# Auth, Video, and ToDo Micro Service DBs follow the same convention.
+vault kv put secret/data/db/authdb/dev user=theuser password=theuser flw-user=authadmin flw-password=authadmin db-name=authdb profile=dev
+vault kv put secret/data/db/videodb/dev user=theuser password=theuser flw-user=videoadmin flw-password=videoadmin db-name=videodb profile=dev
+vault kv put secret/data/db/tododb/dev user=theuser password=theuser flw-user=todoadmin flw-password=todoadmin db-name=tododb profile=dev
+
+# -- Keycloak --
+vault kv put secret/data/keycloak/dev realm=company-platform issuer-uri=http://keycloak:8080/realms/company-platform base-url=http://keycloak:8080 admin-client-id=user-service admin-client-secret=change-me profile=dev
+echo "Secret 'secret/data/keycloak/dev' created."
 
 
 # Verify secrets have been written

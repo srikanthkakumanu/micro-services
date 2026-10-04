@@ -37,41 +37,49 @@ services:
     networks:
       - apps-network
 
-  # MariaDB
-  mariadb:
-    image: mariadb:latest
-    container_name: mariadb
+  # PostgreSQL
+  postgres:
+    image: postgres:18
+    container_name: postgres
     restart: on-failure
     environment:
-      MARIADB_ROOT_PASSWORD: root
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: postgres
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mariadb:/var/lib/mysql
-      - ./mariadb-init:/docker-entrypoint-initdb.d
+      - postgres:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: [ "CMD-SHELL", "pg_isready -U root -d postgres" ]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 20s
     logging: # To disable logs to print in the container
       driver: none
     networks:
       - apps-network
 
-  # UI for MariaDB/MySQL
-  phpmyadmin:
-    image: phpmyadmin
-    container_name: phpmyadmin
+  # Keycloak identity provider
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
     restart: on-failure
+    command: start-dev
     ports:
-      - "40001:80"
+      - "8080:8080"
     environment:
-      PMA_HOST: mariadb
-      PMA_PORT: 3306
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: theuser
+      KC_DB_PASSWORD: theuser
+      KC_HEALTH_ENABLED: true
     depends_on:
-      mariadb:
+      postgres:
         condition: service_healthy
     networks:
       - apps-network
@@ -83,7 +91,7 @@ services:
     depends_on:
       vault:
         condition: service_healthy
-      mariadb:
+      postgres:
         condition: service_healthy
     ports:
       - "9111:9111"
@@ -108,16 +116,14 @@ services:
     depends_on:
       vault:
         condition: service_healthy
-      mariadb:
+      postgres:
         condition: service_healthy
       eureka-discovery-service:
-        condition: service_started
-      api-gateway:
         condition: service_started
     ports:
       - "9311:9311"
     volumes:
-      - ./service-configs:/home/skakumanu/practice/micro-services/service-configs
+      - ../service-configs:/home/skakumanu/practice/micro-services/service-configs
     environment:
       - SPRING_APP_NAME=cloud-config-service
       - SERVER_PORT=9311
@@ -146,8 +152,10 @@ services:
     depends_on:
       vault:
         condition: service_healthy
-      mariadb:
+      postgres:
         condition: service_healthy
+      keycloak:
+        condition: service_started
       eureka-discovery-service:
         condition: service_started
     ports:
@@ -157,9 +165,7 @@ services:
       - SERVER_PORT=9211
       - SPRING_ACTIVE_PROFILE=dev
       - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
-      - VAULT_HOST=vault
-      - VAULT_PORT=8200
-      - VAULT_TOKEN=srikanth
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/company-platform
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9211/actuator/health" ]
       interval: 10s
@@ -176,8 +182,10 @@ services:
     depends_on:
       vault:
         condition: service_healthy
-      mariadb:
+      postgres:
         condition: service_healthy
+      keycloak:
+        condition: service_started
       eureka-discovery-service:
         condition: service_started
       api-gateway:
@@ -195,7 +203,12 @@ services:
       - USER_SESSION_TIMEOUT=5m
       - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
       - SPRING_ACTIVE_PROFILE=dev
-      - JWT_EXPIRY_TTL=700000
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/userdb
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/company-platform
+      - KEYCLOAK_BASE_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=company-platform
+      - KEYCLOAK_ADMIN_CLIENT_ID=user-service
+      - KEYCLOAK_ADMIN_CLIENT_SECRET=change-me
       - VAULT_HOST=vault
       - VAULT_PORT=8200
       - VAULT_TOKEN=srikanth
@@ -208,6 +221,47 @@ services:
     networks:
       - apps-network
 
+  # authorization microservice
+  auth-service:
+    image: auth-service:latest
+    container_name: auth-service
+    depends_on:
+      vault:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      eureka-discovery-service:
+        condition: service_started
+      api-gateway:
+        condition: service_started
+      cloud-config-service:
+        condition: service_started
+    ports:
+      - "9141:9141"
+    environment:
+      - SPRING_APP_NAME=auth-service
+      - SERVER_PORT=9141
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - SPRING_JPA_HIBERNATE_SHOW_SQL=false
+      - SPRING_JPA_HIBERNATE_FORMAT_SQL=false
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/authdb
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/company-platform
+      - SPRING_ACTIVE_PROFILE=dev
+      - VAULT_HOST=vault
+      - VAULT_PORT=8200
+      - VAULT_TOKEN=srikanth
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9141/actuator/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 70s
+    networks:
+      - apps-network
+
   # books microservice
   books-service:
     image: books-service:latest
@@ -215,8 +269,10 @@ services:
     depends_on:
       vault:
         condition: service_healthy
-      mariadb:
+      postgres:
         condition: service_healthy
+      keycloak:
+        condition: service_started
       eureka-discovery-service:
         condition: service_started
       api-gateway:
@@ -232,6 +288,8 @@ services:
       - SPRING_JPA_HIBERNATE_SHOW_SQL=false
       - SPRING_JPA_HIBERNATE_FORMAT_SQL=false
       - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/booksdb
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/company-platform
       - SPRING_ACTIVE_PROFILE=dev
       - VAULT_HOST=vault
       - VAULT_PORT=8200
@@ -245,8 +303,86 @@ services:
     networks:
       - apps-network
 
+  # video microservice
+  video-service:
+    image: video-service:latest
+    container_name: video-service
+    depends_on:
+      vault:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      eureka-discovery-service:
+        condition: service_started
+      api-gateway:
+        condition: service_started
+      cloud-config-service:
+        condition: service_started
+    ports:
+      - "9161:9161"
+    environment:
+      - SPRING_APP_NAME=video-service
+      - SERVER_PORT=9161
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/videodb
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/company-platform
+      - SPRING_ACTIVE_PROFILE=dev
+      - VAULT_HOST=vault
+      - VAULT_PORT=8200
+      - VAULT_TOKEN=srikanth
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9161/actuator/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 70s
+    networks:
+      - apps-network
+
+  # todo microservice
+  todo-service:
+    image: todo-service:latest
+    container_name: todo-service
+    depends_on:
+      vault:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      eureka-discovery-service:
+        condition: service_started
+      api-gateway:
+        condition: service_started
+      cloud-config-service:
+        condition: service_started
+    ports:
+      - "9171:9171"
+    environment:
+      - SPRING_APP_NAME=todo-service
+      - SERVER_PORT=9171
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE=http://eureka-discovery-service:9111/eureka
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tododb
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/company-platform
+      - SPRING_ACTIVE_PROFILE=dev
+      - VAULT_HOST=vault
+      - VAULT_PORT=8200
+      - VAULT_TOKEN=srikanth
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9171/actuator/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 70s
+    networks:
+      - apps-network
+
 volumes:
-  mariadb:
+  postgres:
     driver: local
   vault:
     driver: local

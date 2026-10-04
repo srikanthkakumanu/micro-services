@@ -6,7 +6,10 @@ group "default" {
     "api-gateway",
     "cloud-config-service",
     "user-service",
-    "books-service"
+    "auth-service",
+    "books-service",
+    "video-service",
+    "todo-service"
   ]
 }
 
@@ -18,7 +21,7 @@ variable "VERSION" {
 # Build definition for the Eureka Discovery Service
 target "eureka-discovery-service" {
   # The directory containing the Dockerfile
-  context = "./eureka-discovery-service"
+  context = "../eureka-discovery"
   # The name and tag for the final image
   tags    = ["eureka-discovery-service:latest"]
   # Build arguments passed to the Dockerfile
@@ -28,9 +31,19 @@ target "eureka-discovery-service" {
   }
 }
 
+# Build definition for the Authorization Service
+target "auth-service" {
+  context = "../auth-service"
+  tags    = ["auth-service:latest"]
+  args = {
+    PROJECT_NAME    = "auth-service"
+    PROJECT_VERSION = "${VERSION}"
+  }
+}
+
 # Build definition for the User Service
 target "user-service" {
-  context = "./user-service"
+  context = "../user-service"
   tags    = ["user-service:latest"]
   args = {
     PROJECT_NAME    = "user-service"
@@ -40,7 +53,7 @@ target "user-service" {
 
 # Build definition for the API Gateway
 target "api-gateway" {
-  context = "./api-gateway"
+  context = "../api-gateway"
   tags    = ["api-gateway:latest"]
   args = {
     PROJECT_NAME    = "api-gateway"
@@ -51,7 +64,7 @@ target "api-gateway" {
 # Build definition for the (disabled) Books Service.
 # To use it, simply add "books-service" to the "default" group's targets list above.
 target "books-service" {
-  context = "./books-service"
+  context = "../books-service"
   tags    = ["books-service:latest"]
   args = {
     PROJECT_NAME    = "books-service"
@@ -59,10 +72,30 @@ target "books-service" {
   }
 }
 
+# Build definition for the Video Service.
+target "video-service" {
+  context = "../video-service"
+  tags    = ["video-service:latest"]
+  args = {
+    PROJECT_NAME    = "video-service"
+    PROJECT_VERSION = "${VERSION}"
+  }
+}
+
+# Build definition for the ToDo Service.
+target "todo-service" {
+  context = "../todo-service"
+  tags    = ["todo-service:latest"]
+  args = {
+    PROJECT_NAME    = "todo-service"
+    PROJECT_VERSION = "${VERSION}"
+  }
+}
+
 # Build definition for the Cloud Config Server for all microservices.
 target "cloud-config-service" {
   # The directory containing the Dockerfile
-  context = "./cloud-config-service"
+  context = "../cloud-config-service"
   # The name and tag for the final image
   tags    = ["cloud-config-service:latest"]
   # Build arguments passed to the Dockerfile

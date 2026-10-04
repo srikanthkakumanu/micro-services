@@ -1,0 +1,78 @@
+CREATE DATABASE keycloak;
+CREATE DATABASE vaultdb;
+CREATE DATABASE userdb;
+CREATE DATABASE authdb;
+CREATE DATABASE booksdb;
+CREATE DATABASE videodb;
+CREATE DATABASE tododb;
+
+DO
+$$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'theuser') THEN
+        CREATE ROLE theuser LOGIN PASSWORD 'theuser';
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'vaultadmin') THEN
+        CREATE ROLE vaultadmin LOGIN PASSWORD 'vaultadmin';
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'useradmin') THEN
+        CREATE ROLE useradmin LOGIN PASSWORD 'useradmin';
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authadmin') THEN
+        CREATE ROLE authadmin LOGIN PASSWORD 'authadmin';
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'bookadmin') THEN
+        CREATE ROLE bookadmin LOGIN PASSWORD 'bookadmin';
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'videoadmin') THEN
+        CREATE ROLE videoadmin LOGIN PASSWORD 'videoadmin';
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'todoadmin') THEN
+        CREATE ROLE todoadmin LOGIN PASSWORD 'todoadmin';
+    END IF;
+END
+$$;
+
+GRANT ALL PRIVILEGES ON DATABASE keycloak TO theuser;
+GRANT ALL PRIVILEGES ON DATABASE vaultdb TO vaultadmin;
+GRANT ALL PRIVILEGES ON DATABASE userdb TO useradmin;
+GRANT ALL PRIVILEGES ON DATABASE authdb TO authadmin;
+GRANT ALL PRIVILEGES ON DATABASE booksdb TO bookadmin;
+GRANT ALL PRIVILEGES ON DATABASE videodb TO videoadmin;
+GRANT ALL PRIVILEGES ON DATABASE tododb TO todoadmin;
+
+GRANT CONNECT ON DATABASE userdb TO theuser;
+GRANT CONNECT ON DATABASE authdb TO theuser;
+GRANT CONNECT ON DATABASE booksdb TO theuser;
+GRANT CONNECT ON DATABASE videodb TO theuser;
+GRANT CONNECT ON DATABASE tododb TO theuser;
+
+\connect userdb
+GRANT USAGE, CREATE ON SCHEMA public TO useradmin;
+GRANT USAGE ON SCHEMA public TO theuser;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO theuser;
+ALTER DEFAULT PRIVILEGES FOR ROLE useradmin IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO theuser;
+
+\connect authdb
+GRANT USAGE, CREATE ON SCHEMA public TO authadmin;
+GRANT USAGE ON SCHEMA public TO theuser;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO theuser;
+ALTER DEFAULT PRIVILEGES FOR ROLE authadmin IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO theuser;
+
+\connect booksdb
+GRANT USAGE, CREATE ON SCHEMA public TO bookadmin;
+GRANT USAGE ON SCHEMA public TO theuser;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO theuser;
+ALTER DEFAULT PRIVILEGES FOR ROLE bookadmin IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO theuser;
+
+\connect videodb
+GRANT USAGE, CREATE ON SCHEMA public TO videoadmin;
+GRANT USAGE ON SCHEMA public TO theuser;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO theuser;
+ALTER DEFAULT PRIVILEGES FOR ROLE videoadmin IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO theuser;
+
+\connect tododb
+GRANT USAGE, CREATE ON SCHEMA public TO todoadmin;
+GRANT USAGE ON SCHEMA public TO theuser;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO theuser;
+ALTER DEFAULT PRIVILEGES FOR ROLE todoadmin IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO theuser;
