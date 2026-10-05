@@ -145,6 +145,27 @@ class JwtE2ETest {
 				.statusCode(401).body("code", equalTo("invalid-token"));
 	}
 
+	@Test
+	void aTokenFromAnEndedSessionIsRefusedForSensitiveOperationsBeforeItExpires() {
+		JsonPath session = Platform.login("platform-admin", Platform.required("PLATFORM_ADMIN_PASSWORD"));
+		String stale = session.getString("accessToken");
+		Platform.User user = Platform.newUser();
+		api(stale).body(Map.of("refreshToken", session.getString("refreshToken"))).post("/api/v1/auth/logout").then().statusCode(204);
+
+		// Access tokens expire naturally, so reads still pass the signature check...
+		api(stale).get("/api/v1/auth/me").then().statusCode(200);
+		api(stale).get("/api/v1/users/" + user.id()).then().statusCode(200);
+		// ...but role, credential and client changes are checked against the identity provider.
+		api(stale).body(Platform.roles("USER_ADMIN")).post("/api/v1/users/" + user.id() + "/roles").then()
+				.statusCode(401).body("code", equalTo("invalid-token"));
+		api(stale).body(Map.of("password", Platform.PASSWORD, "temporary", false))
+				.put("/api/v1/users/" + user.id() + "/credentials/password").then().statusCode(401).body("code", equalTo("invalid-token"));
+		api(stale).body(Map.of("clientId", "stale-client")).post("/api/v1/clients").then().statusCode(401);
+		api(stale).delete("/api/v1/users/" + user.id()).then().statusCode(401);
+
+		api(adminToken()).delete("/api/v1/users/" + user.id()).then().statusCode(204);
+	}
+
 	// --- contract
 
 	@Test

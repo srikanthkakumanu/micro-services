@@ -21,12 +21,12 @@ fi
 echo "==> Building images"
 docker compose build bootstrap eureka-discovery config-server user-service auth-service api-gateway
 
-# Docker Desktop's cluster may run its own container runtime (kind mode); load the images if so.
-if command -v kind >/dev/null 2>&1 && kind get clusters 2>/dev/null | grep -q .; then
-  for image in bootstrap eureka-discovery config-server user-service auth-service api-gateway; do
-    kind load docker-image "identity-platform-$image:latest" --name "$(kind get clusters | head -1)"
-  done
-fi
+# Each deployment gets its own image tag. A node keeps the image it already has for a tag, so
+# re-using :latest would leave the previous build running.
+TAG=$(date +%Y%m%d%H%M%S)
+for image in bootstrap eureka-discovery config-server user-service auth-service api-gateway; do
+  docker tag "identity-platform-$image:latest" "identity-platform-$image:$TAG"
+done
 
 echo "==> Applying $OVERLAY"
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
@@ -39,7 +39,8 @@ kubectl -n "$NAMESPACE" create secret generic platform-bootstrap --from-env-file
 rm -f .env.k8s-secret
 # A Job cannot be changed in place; replace it so the bootstrap runs again.
 kubectl -n "$NAMESPACE" delete job bootstrap --ignore-not-found
-kubectl kustomize --load-restrictor LoadRestrictionsNone "$OVERLAY" | kubectl apply -f -
+kubectl kustomize --load-restrictor LoadRestrictionsNone "$OVERLAY" \
+  | sed "s#\\(image: identity-platform-[a-z-]*\\):latest#\\1:$TAG#" | kubectl apply -f -
 
 echo "==> Waiting for rollout"
 kubectl -n "$NAMESPACE" rollout status statefulset/postgres --timeout=300s

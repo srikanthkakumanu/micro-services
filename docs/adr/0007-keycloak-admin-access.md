@@ -1,6 +1,6 @@
 # ADR 0007: Split of Keycloak admin access
 
-- Status: accepted (auth-service column to be confirmed when that service is built)
+- Status: accepted
 - Date: 2026-10-05
 
 ## Decision

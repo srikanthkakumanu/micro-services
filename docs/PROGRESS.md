@@ -26,9 +26,43 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 
 - **Slice 9 – Kubernetes.** ADR 0013. `k8s/base` and `k8s/overlays/dev`, namespace `identity-dev`, one replica per workload, probes on Actuator health groups, requests and limits, no Secret in Git. `scripts/k8s-up.sh` (`make k8s-up`) builds, applies, waits for rollout and runs the bootstrap Job. The end-to-end suite passes against it: `make test-e2e-k8s`, 20 tests, none skipped.
 
-## In progress
+- **Slice 10 – docs and Definition of Done.** ADRs 0002, 0009, 0010; `jwt-contract.md`; `integrating-a-new-service.md`; a README in each of the seven repositories. Sensitive operations in both services now check the caller's token by introspection (ADR 0009).
 
-- Slice 10 – docs and Definition of Done.
+## Final verification (2026-10-05)
+
+| Check | Result |
+| --- | --- |
+| `./gradlew build` in `user-service` | 139 tests, 0 failed, 0 skipped; `domain` + `application` line coverage 99% |
+| `./gradlew build` in `auth-service` | 209 tests, 0 failed, 0 skipped; `domain` + `application` line coverage 99% |
+| `./gradlew build` in `api-gateway` | 46 tests, 0 failed, 0 skipped |
+| `./gradlew build` in `cloud-config-service`, `eureka-discovery` | 6 and 3 tests, 0 failed, 0 skipped |
+| `./gradlew build` in `micro-services` (security starter) | 35 tests, 0 failed, 0 skipped |
+| `make reset && make up` | ten containers healthy from a clean state |
+| `make test-e2e` (Compose) | 21 tests, 0 failed, 0 skipped |
+| `make k8s-up` then `make test-e2e-k8s` | rollout complete, 21 tests, 0 failed, 0 skipped |
+| Secret scan of tracked files | nothing but the labelled dev Vault root token in `.env.example` |
+
+## Definition of Done
+
+- [x] Discovery report and plan approved; legacy and Ruby code removed in a separate commit
+- [x] Version baseline ADR written; all services build with `./gradlew build` (on Java 27, by owner decision, instead of 21)
+- [x] ArchUnit rules pass in `user-service` and `auth-service`
+- [x] All unit, integration, API, gateway and e2e tests pass
+- [x] `make up` brings the whole stack up healthy from a clean state with one command
+- [x] Kubernetes dev overlay deploys with one replica each and the e2e suite passes against it
+- [x] No secrets in Git; all sensitive values come from Vault
+- [x] Every operation in the §7 catalog is implemented and covered by tests, except MFA (owner decision); no step requires the Keycloak UI
+- [x] API coverage ADR lists what is deliberately left out, with reasons
+- [x] `docs/jwt-contract.md` written; token settings, signing keys and claims are managed through the APIs; JWT validation, rotation and revocation tests pass
+- [x] OpenAPI docs reachable per service and together at the gateway; `README.md` in each repo
+- [x] `docs/PROGRESS.md`, ADRs and `docs/integrating-a-new-service.md` are current
+
+ArchUnit layering rules exist in the two services that have layers. The gateway, the Config Server and Eureka are single-package infrastructure applications with nothing to layer.
+
+## Not done
+
+- Nothing is pushed and no pull requests are open. All work is on `feature/clean-slate-identity` in each repository.
+- GitHub Actions workflows were removed with the legacy code and not rebuilt.
 
 ## Next
 
@@ -73,13 +107,11 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 - Keycloak admin events name the platform's service account as the actor. The person behind a change is on the matching `API` audit event recorded by auth-service; user-service does not record API events yet.
 - A registered service is added to the audience of every platform user token, so it can accept user tokens directly. Narrower tokens are available through token exchange.
 
-- user-service does not yet offer the read-only view of a user's roles, groups and permissions; it is added once auth-service exposes them.
-- Introspection of the caller's token on sensitive user-service operations (credential changes) is not wired yet; it needs auth-service's introspection endpoint.
+- A user's roles, groups and effective permissions are read at `/api/v1/users/{id}/roles|groups|permissions`. auth-service serves those paths and the gateway routes them there, so user-service itself holds no access data and never mutates access.
 - Listing users sorts by username ascending only, because that is the only order Keycloak's user search offers. Any other `sort` value is rejected with 400.
 
 - Keycloak adds `offline_access` and `uma_authorization` to the default role on import, so they show up in `realm_access.roles`. Harmless; decide in the JWT contract whether to strip them.
 - On this machine containers cannot reach `release-assets.githubusercontent.com`, so the Gradle wrapper cannot download its distribution inside an image build. The Dockerfiles take Gradle 9.8.0 from the official `gradle` image instead and the JDK from `eclipse-temurin:27-jdk`.
-- `make test-e2e` is added with the end-to-end slice.
 
 - `postgres-init/init.sql` and the books/video/reviews files in `service-configs` still carry uncommitted modifications from before the rebuild. They were left exactly as found because they belong to the out-of-scope services.
 - The parked files in `legacy/` will not work against the new realm until those services are onboarded.
