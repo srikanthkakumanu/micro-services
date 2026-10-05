@@ -1,6 +1,6 @@
 # Progress
 
-Resume point for the clean-slate identity platform build. Branch in every in-scope repo: `feature/clean-slate-identity`. Nothing is pushed.
+Record of the clean-slate identity platform build. It was developed on `feature/clean-slate-identity` in every in-scope repo, then fast-forwarded into `master` and pushed to GitHub on 2026-10-06.
 
 ## Done
 
@@ -63,7 +63,7 @@ ArchUnit layering rules exist in the two services that have layers. The gateway,
 
 ## Not done
 
-- Nothing is pushed and no pull requests are open. All work is on `feature/clean-slate-identity` in each repository.
+- The old implementation is no longer on `master`, but its commits remain in the Git history before `chore: remove legacy implementation`.
 - GitHub Actions workflows were removed with the legacy code and not rebuilt.
 
 ## Next
@@ -71,7 +71,7 @@ ArchUnit layering rules exist in the two services that have layers. The gateway,
 The approved clean-slate implementation scope (Slices 0-10) is complete. The remaining items are deferred decisions, not unfinished implementation phases:
 
 - GitHub Actions were explicitly left out of this rebuild.
-- Branches remain local; no push or pull request has been made for the clean-slate repositories.
+- The work was merged into `master` by fast-forward and pushed directly; no pull requests were opened.
 - MFA remains out of scope by owner decision.
 
 Start another implementation slice only after the owner updates those scope decisions or supplies a new requirement.
