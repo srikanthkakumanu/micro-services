@@ -30,6 +30,8 @@ Record of the clean-slate identity platform build. It was developed on `feature/
 
 - **Follow-up (2026-10-06) – environment profiles and legacy clean-up.** ADR 0014. Configuration is split into base, `dev`, `qa` and `prod` files in `service-configs` and in the bundled configuration of all five services; the `docker` and `k8s` profiles are gone. Compose takes the environment from `.env.<environment>.example` (`make up ENV=qa`); Kubernetes has `overlays/dev`, `qa` and `prod`. Removed: `micro-services/legacy/`, `micro-services/postgres-init/`, the books/video/reviews files in `service-configs`, and stale build output. Verified: all service builds pass; the Compose stack starts healthy with each of `dev`, `qa` and `prod`; a service started with `qa` and no settings refuses to start; all three overlays render and validate; the end-to-end suite passes on Compose and on Kubernetes with `dev`.
 
+- **Follow-up (2026-10-06) – start and stop scripts, READMEs.** `scripts/start.sh` starts the platform stage by stage in dependency order and waits until the gateway can route; `scripts/stop.sh` stops it gracefully in reverse order; `restart.sh`, `status.sh` and `run-from-source.sh` complete the set, and the `Makefile` targets call them. The five services use graceful shutdown with a 30-second limit and their containers a 40-second grace period. Every repository's `README.md` was rewritten in detail. Verified: stop, start with rebuild, restart of one service (graceful shutdown logged), stop keeping containers and start again, then the end-to-end suite, 21 of 21.
+
 ## Final verification (2026-10-05)
 
 | Check | Result |
@@ -101,7 +103,7 @@ Start another implementation slice only after the owner updates those scope deci
 
 ## Open issues
 
-- The gateway answers 503 for the first seconds after it reports healthy, until it has fetched the registry from Eureka.
+- The gateway answers 503 for the first seconds after it reports healthy, until it has fetched the registry from Eureka. `scripts/start.sh` waits for that before it reports the platform as up.
 - The `qa` and `prod` Kubernetes overlays have placeholder host names and a placeholder Git remote and have not been deployed. Locally, `qa` and `prod` run on the same dev-mode infrastructure as `dev`.
 
 - In the JWT validation scenario, "wrong `iss`" and "future `nbf`" are forged with a key the platform never published, because the platform itself will not sign such tokens. The claim checks themselves, with a valid signature, are covered by the security starter's tests.

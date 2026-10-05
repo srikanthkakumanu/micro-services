@@ -126,6 +126,8 @@ services:
     restart: "no"
 
   eureka-discovery:
+    # Time to finish requests in flight and deregister before the container is killed.
+    stop_grace_period: 40s
     build:
       context: ../eureka-discovery
       additional_contexts:
@@ -137,6 +139,8 @@ services:
       - "${EUREKA_PORT}:9111"
 
   config-server:
+    # Time to finish requests in flight and deregister before the container is killed.
+    stop_grace_period: 40s
     build:
       context: ../cloud-config-service
       additional_contexts:
@@ -161,6 +165,8 @@ services:
         condition: service_healthy
 
   user-service:
+    # Time to finish requests in flight and deregister before the container is killed.
+    stop_grace_period: 40s
     build:
       context: ../user-service
       additional_contexts:
@@ -179,6 +185,8 @@ services:
         condition: service_healthy
 
   auth-service:
+    # Time to finish requests in flight and deregister before the container is killed.
+    stop_grace_period: 40s
     build:
       context: ../auth-service
       additional_contexts:
@@ -197,6 +205,8 @@ services:
         condition: service_healthy
 
   api-gateway:
+    # Time to finish requests in flight and deregister before the container is killed.
+    stop_grace_period: 40s
     build:
       context: ../api-gateway
       additional_contexts:

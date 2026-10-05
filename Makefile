@@ -3,29 +3,39 @@ COMPOSE := docker compose
 # Which configuration the stack runs with: dev, qa or prod.
 ENV ?= dev
 
-.PHONY: help env up down reset logs ps test-e2e k8s-up k8s-down test-e2e-k8s
+.PHONY: help env up start stop down restart status reset logs ps test-e2e k8s-up k8s-down test-e2e-k8s
 
 help: ## Show the available targets
-	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
+	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-13s %s\n", $$1, $$2}'
 
 env: ## Create .env for ENV (default dev) with generated secrets if it does not exist
 	@./scripts/init-env.sh $(ENV)
 
-up: env ## Build and start the whole stack (ENV=dev|qa|prod), waiting until it is healthy
-	$(COMPOSE) up --build --detach --wait
+up: ## Build the images and start the platform in order (ENV=dev|qa|prod)
+	./scripts/start.sh $(ENV) --build
 
-down: ## Stop the stack, keeping data and secrets
-	$(COMPOSE) down
+start: ## Start the platform in order without rebuilding (S="service ..." for some only)
+	./scripts/start.sh $(S)
 
-reset: ## Stop the stack and delete volumes and generated secrets
-	$(COMPOSE) down --volumes --remove-orphans
-	rm -f .env
+stop: ## Stop the platform gracefully and remove the containers, keeping data (S="service ..." for some only)
+	./scripts/stop.sh $(S)
 
-logs: ## Follow the logs of all services
-	$(COMPOSE) logs --follow
+down: stop ## Same as stop
 
-ps: ## Show service status
-	$(COMPOSE) ps
+restart: ## Restart gracefully (S="service ..." for some only, BUILD=1 to rebuild)
+	./scripts/restart.sh $(if $(BUILD),--build) $(S)
+
+status: ## Show what is running and whether the gateway can reach the services
+	@./scripts/status.sh
+
+reset: ## Stop the platform and delete data volumes and generated secrets
+	./scripts/stop.sh --reset --yes
+
+logs: ## Follow the logs (S="service ..." for some only)
+	$(COMPOSE) logs --follow $(S)
+
+ps: ## Show container status
+	$(COMPOSE) ps --all
 
 test-e2e: ## Run the end-to-end suite against the running stack
 	./gradlew :e2e:e2eTest
