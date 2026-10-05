@@ -1,0 +1,9 @@
+# This directory is passed to service image builds as the "platform" context.
+# Allowlist only what a Gradle build or the bootstrap image needs; .env must never be sent.
+**
+!settings.gradle
+!gradle/libs.versions.toml
+!platform-security-starter/build.gradle
+!platform-security-starter/src/main/**
+!scripts/vault-bootstrap.sh
+!scripts/keycloak-bootstrap.sh

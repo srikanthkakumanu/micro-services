@@ -1,0 +1,675 @@
+{
+  "realm": "platform",
+  "displayName": "Identity Platform",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "verifyEmail": true,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername(undefined)",
+  "defaultSignatureAlgorithm": "RS256",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "eventsEnabled": true,
+  "eventsExpiration": 2592000,
+  "eventsListeners": [
+    "jboss-logging"
+  ],
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true,
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "no-reply@platform.local",
+    "fromDisplayName": "Identity Platform",
+    "auth": "false",
+    "ssl": "false",
+    "starttls": "false"
+  },
+  "defaultRole": {
+    "name": "default-roles-platform",
+    "description": "Roles every new user receives",
+    "composite": true
+  },
+  "roles": {
+    "realm": [
+      {
+        "name": "USER",
+        "description": "Self-service only",
+        "attributes": {
+          "platform.system": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "USER_ADMIN",
+        "description": "Administers users",
+        "attributes": {
+          "platform.system": [
+            "true"
+          ]
+        },
+        "composite": true,
+        "composites": {
+          "client": {
+            "user-service": [
+              "users:read",
+              "users:write"
+            ]
+          }
+        }
+      },
+      {
+        "name": "ACCESS_ADMIN",
+        "description": "Administers roles, groups, permissions and sessions",
+        "attributes": {
+          "platform.system": [
+            "true"
+          ]
+        },
+        "composite": true,
+        "composites": {
+          "client": {
+            "auth-service": [
+              "roles:manage",
+              "groups:manage",
+              "permissions:manage",
+              "sessions:manage",
+              "audit:read"
+            ],
+            "user-service": [
+              "users:read"
+            ]
+          }
+        }
+      },
+      {
+        "name": "PLATFORM_ADMIN",
+        "description": "Holds every platform permission",
+        "attributes": {
+          "platform.system": [
+            "true"
+          ]
+        },
+        "composite": true,
+        "composites": {
+          "client": {
+            "auth-service": [
+              "roles:manage",
+              "groups:manage",
+              "permissions:manage",
+              "clients:manage",
+              "sessions:manage",
+              "audit:read",
+              "tokens:manage"
+            ],
+            "user-service": [
+              "users:read",
+              "users:write"
+            ]
+          },
+          "realm": [
+            "USER_ADMIN",
+            "ACCESS_ADMIN"
+          ]
+        }
+      },
+      {
+        "name": "default-roles-platform",
+        "description": "Roles every new user receives",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "USER"
+          ]
+        },
+        "attributes": {
+          "platform.system": [
+            "true"
+          ]
+        }
+      }
+    ],
+    "client": {
+      "user-service": [
+        {
+          "name": "users:read",
+          "description": "Read any user and profile",
+          "attributes": {
+            "platform.system": [
+              "true"
+            ]
+          }
+        },
+        {
+          "name": "users:write",
+          "description": "Create, change and delete users",
+          "attributes": {
+            "platform.system": [
+              "true"
+            ]
+          }
+        }
+      ],
+      "auth-service": [
+        {
+          "name": "roles:manage",
+          "description": "Manage roles and role assignments",
+          "attributes": {
+            "platform.system": [
+              "true"
+            ]
+          }
+        },
+        {
+          "name": "groups:manage",
+          "description": "Manage groups and membership",
+          "attributes": {
+            "platform.system": [
+              "true"
+            ]
+          }
+        },
+        {
+          "name": "permissions:manage",
+          "description": "Manage permissions and attach them to roles",
+          "attributes": {
+            "platform.system": [
+              "true"
+            ]
+          }
+        },
+        {
+          "name": "clients:manage",
+          "description": "Manage service clients",
+          "attributes": {
+            "platform.system": [
+              "true"
+            ]
+          }
+        },
+        {
+          "name": "sessions:manage",
+          "description": "List and revoke any user's sessions",
+          "attributes": {
+            "platform.system": [
+              "true"
+            ]
+          }
+        },
+        {
+          "name": "audit:read",
+          "description": "Read login and admin events",
+          "attributes": {
+            "platform.system": [
+              "true"
+            ]
+          }
+        },
+        {
+          "name": "tokens:manage",
+          "description": "Manage token settings, signing keys and token claims",
+          "attributes": {
+            "platform.system": [
+              "true"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "clientScopes": [
+    {
+      "name": "basic",
+      "description": "Subject identifier",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "profile",
+      "description": "Username and display name",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "full name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-full-name-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "email",
+      "description": "Email address and verification state",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "user.attribute": "emailVerified",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean"
+          }
+        }
+      ]
+    },
+    {
+      "name": "roles",
+      "description": "Realm roles",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "multivalued": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "platform-permissions",
+      "description": "Flat permissions claim; one mapper per service client",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "user-service permissions",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "usermodel.clientRoleMapping.clientId": "user-service",
+            "claim.name": "permissions",
+            "jsonType.label": "String",
+            "multivalued": "true"
+          }
+        },
+        {
+          "name": "auth-service permissions",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "usermodel.clientRoleMapping.clientId": "auth-service",
+            "claim.name": "permissions",
+            "jsonType.label": "String",
+            "multivalued": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "platform-groups",
+      "description": "Group paths",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "claim.name": "groups",
+            "full.path": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "platform-audience",
+      "description": "Audience for tokens meant for the platform APIs",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "api-gateway audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "included.client.audience": "api-gateway"
+          }
+        },
+        {
+          "name": "user-service audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "included.client.audience": "user-service"
+          }
+        },
+        {
+          "name": "auth-service audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "included.client.audience": "auth-service"
+          }
+        }
+      ]
+    },
+    {
+      "name": "service-audience-auth-service",
+      "description": "Audience for service tokens that call auth-service",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "auth-service audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "included.client.audience": "auth-service"
+          }
+        }
+      ]
+    }
+  ],
+  "defaultDefaultClientScopes": [
+    "basic",
+    "profile",
+    "email",
+    "roles",
+    "platform-permissions",
+    "platform-groups"
+  ],
+  "defaultOptionalClientScopes": [],
+  "clients": [
+    {
+      "clientId": "api-gateway",
+      "name": "api-gateway",
+      "description": "Gateway; validates tokens and proxies discovery documents",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "platform.system": "true",
+        "standard.token.exchange.enabled": "true"
+      },
+      "defaultClientScopes": [
+        "basic",
+        "roles",
+        "platform-permissions"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "user-service",
+      "name": "user-service",
+      "description": "Identity context; administers users through the Admin API",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "platform.system": "true",
+        "standard.token.exchange.enabled": "true"
+      },
+      "defaultClientScopes": [
+        "basic",
+        "profile",
+        "roles",
+        "platform-permissions",
+        "service-audience-auth-service"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "auth-service",
+      "name": "auth-service",
+      "description": "Access context; performs logins and administers access",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "platform.system": "true",
+        "standard.token.exchange.enabled": "true"
+      },
+      "defaultClientScopes": [
+        "basic",
+        "profile",
+        "email",
+        "roles",
+        "platform-permissions",
+        "platform-groups",
+        "platform-audience"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "frontend",
+      "name": "frontend",
+      "description": "Placeholder for a future browser client (Authorization Code + PKCE)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "platform.system": "true"
+      },
+      "defaultClientScopes": [
+        "basic",
+        "profile",
+        "email",
+        "roles",
+        "platform-permissions",
+        "platform-groups",
+        "platform-audience"
+      ],
+      "optionalClientScopes": []
+    }
+  ],
+  "users": [
+    {
+      "username": "platform-admin",
+      "enabled": true,
+      "email": "platform-admin@platform.local",
+      "emailVerified": true,
+      "firstName": "Platform",
+      "lastName": "Admin",
+      "realmRoles": [
+        "default-roles-platform",
+        "PLATFORM_ADMIN"
+      ]
+    },
+    {
+      "username": "service-account-user-service",
+      "enabled": true,
+      "serviceAccountClientId": "user-service",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "query-users"
+        ]
+      }
+    },
+    {
+      "username": "service-account-auth-service",
+      "enabled": true,
+      "serviceAccountClientId": "auth-service",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "query-users",
+          "query-groups",
+          "manage-realm",
+          "view-realm",
+          "manage-clients",
+          "view-clients",
+          "query-clients",
+          "manage-events",
+          "view-events"
+        ]
+      }
+    }
+  ]
+}
