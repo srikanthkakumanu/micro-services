@@ -11,9 +11,11 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 
 - **Slice 3 – infrastructure.** ADR 0008. `docker-compose.yml` with Postgres 18 (`keycloak`, `user_db`, `auth_db`, one owner each), Keycloak 26.8.0 importing `keycloak/platform-realm.json`, Vault 2.1.1 (dev), Mailpit, the one-shot `bootstrap` job, Eureka and the Config Server. `Makefile` with `up`, `down`, `reset`, `logs`, `ps`. Rebuilt `eureka-discovery` (3 tests) and `cloud-config-service` (6 tests against a real Vault container). Shared `application*.yml` in `service-configs`. Verified by hand on the running stack: all containers healthy; `platform-admin` can log in; the token carries `aud` for the three platform clients, a flat `permissions` array merged from both service clients and `typ: Bearer`; `iss` is `http://localhost:8080/realms/platform` both from the host and from inside the network; a service's Vault token cannot read another service's secrets.
 
+- **Slice 4 – user-service.** ADRs 0006, 0007, 0012. Every `user` row of the §7 catalog except the MFA parts: registration, public password-reset request, user CRUD and search, enable/disable/lock/unlock, own and admin profile, account actions, admin credentials. 137 tests, none skipped: 60 domain, 33 use-case, 7 ArchUnit rules, 15 Keycloak adapter tests against Keycloak 26.8.0 with the realm file and Mailpit, 5 JPA tests against Postgres 18, 22 controller slice tests, 5 full-context tests with Keycloak-issued tokens. Line coverage on `domain` + `application`: 99.1% (build fails below 80%). Runs in Compose with the `docker` profile, config from the Config Server and secrets from Vault; a token obtained from the host is accepted inside the network.
+
 ## In progress
 
-- Slice 4 – user-service.
+- Slice 5 – auth-service.
 
 ## Next
 
@@ -46,6 +48,10 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 - Local Kubernetes target is Docker Desktop (the only cluster present).
 
 ## Open issues
+
+- user-service does not yet offer the read-only view of a user's roles, groups and permissions; it is added once auth-service exposes them.
+- Introspection of the caller's token on sensitive user-service operations (credential changes) is not wired yet; it needs auth-service's introspection endpoint.
+- Listing users sorts by username ascending only, because that is the only order Keycloak's user search offers. Any other `sort` value is rejected with 400.
 
 - Keycloak adds `offline_access` and `uma_authorization` to the default role on import, so they show up in `realm_access.roles`. Harmless; decide in the JWT contract whether to strip them.
 - On this machine containers cannot reach `release-assets.githubusercontent.com`, so the Gradle wrapper cannot download its distribution inside an image build. The Dockerfiles take Gradle 9.8.0 from the official `gradle` image instead and the JDK from `eclipse-temurin:27-jdk`.

@@ -145,5 +145,23 @@ services:
       eureka-discovery:
         condition: service_healthy
 
+  user-service:
+    build:
+      context: ../user-service
+      additional_contexts:
+        platform: .
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVER_URL: http://config-server:9311
+      VAULT_URI: http://vault:8200
+      VAULT_TOKEN: ${USER_SERVICE_VAULT_TOKEN}
+    ports:
+      - "${USER_SERVICE_PORT}:9121"
+    depends_on:
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:
