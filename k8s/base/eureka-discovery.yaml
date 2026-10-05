@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eureka-discovery
+  labels:
+    app: eureka-discovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eureka-discovery
+  template:
+    metadata:
+      labels:
+        app: eureka-discovery
+    spec:
+      # Kubernetes would otherwise inject VAULT_PORT=tcp://... style variables that shadow the
+      # services' own settings.
+      enableServiceLinks: false
+      containers:
+        - name: eureka-discovery
+          image: identity-platform-eureka-discovery:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9111
+          env:
+            - name: SERVER_PORT
+              value: "9111"
+            - name: EUREKA_INSTANCE_HOSTNAME
+              value: eureka-discovery
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9111
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 9111
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9111
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eureka-discovery
+spec:
+  type: ClusterIP
+  selector:
+    app: eureka-discovery
+  ports:
+    - port: 9111
+      targetPort: 9111

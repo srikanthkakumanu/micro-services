@@ -1,0 +1,93 @@
+# How the cluster is reached from the host. Docker Desktop publishes LoadBalancer services on
+# localhost; the 30xxx ports keep them apart from a Compose stack running at the same time.
+---
+# The single entry point.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-external
+spec:
+  type: LoadBalancer
+  selector:
+    app: api-gateway
+  ports:
+    - port: 30211
+      targetPort: 9211
+---
+# The issuer URL in tokens, email links, and the console for debugging.
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-external
+spec:
+  type: LoadBalancer
+  selector:
+    app: keycloak
+  ports:
+    - port: 30080
+      targetPort: 8080
+---
+# Mail UI and API; the end-to-end suite reads verification emails here.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailpit-external
+spec:
+  type: LoadBalancer
+  selector:
+    app: mailpit
+  ports:
+    - port: 30025
+      targetPort: 8025
+---
+# Debugging, and where the end-to-end suite reads registered client secrets.
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-external
+spec:
+  type: LoadBalancer
+  selector:
+    app: vault
+  ports:
+    - port: 30200
+      targetPort: 8200
+---
+# Direct access for debugging and for the direct-validation end-to-end tests.
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service-external
+spec:
+  type: LoadBalancer
+  selector:
+    app: user-service
+  ports:
+    - port: 30121
+      targetPort: 9121
+---
+# Direct access for debugging and for the direct-validation end-to-end tests.
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service-external
+spec:
+  type: LoadBalancer
+  selector:
+    app: auth-service
+  ports:
+    - port: 30141
+      targetPort: 9141
+---
+# Debugging.
+apiVersion: v1
+kind: Service
+metadata:
+  name: config-server-external
+spec:
+  type: LoadBalancer
+  selector:
+    app: config-server
+  ports:
+    - port: 30311
+      targetPort: 9311

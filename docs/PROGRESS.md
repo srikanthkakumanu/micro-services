@@ -24,9 +24,11 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 
 - **Slice 8 – end-to-end suite.** REST Assured module `e2e`, run with `make test-e2e` against the running stack. 20 tests, none skipped, all passing, covering every §15.7 scenario except the MFA steps: self-service (register, verify email from Mailpit, login, profile, refresh, change password, sessions, logout), user admin, access admin with token checks, decisions, sessions, onboarding `sample-service` and secret rotation, guards, audit, JWT validation at the gateway and at each service directly, the JWT contract and custom claims, key rotation, lifetimes and refresh reuse, token exchange, issuer consistency between host and container network, and configuration. All test data is created through the APIs.
 
+- **Slice 9 – Kubernetes.** ADR 0013. `k8s/base` and `k8s/overlays/dev`, namespace `identity-dev`, one replica per workload, probes on Actuator health groups, requests and limits, no Secret in Git. `scripts/k8s-up.sh` (`make k8s-up`) builds, applies, waits for rollout and runs the bootstrap Job. The end-to-end suite passes against it: `make test-e2e-k8s`, 20 tests, none skipped.
+
 ## In progress
 
-- Slice 9 – Kubernetes.
+- Slice 10 – docs and Definition of Done.
 
 ## Next
 

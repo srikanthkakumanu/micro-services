@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-server
+  labels:
+    app: config-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: config-server
+  template:
+    metadata:
+      labels:
+        app: config-server
+    spec:
+      # Kubernetes would otherwise inject VAULT_PORT=tcp://... style variables that shadow the
+      # services' own settings.
+      enableServiceLinks: false
+      containers:
+        - name: config-server
+          image: identity-platform-config-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9311
+          env:
+            - name: SERVER_PORT
+              value: "9311"
+            - name: CONFIG_REPO_LOCATION
+              value: file:/config-repo
+            - name: VAULT_HOST
+              value: vault
+            - name: EUREKA_ENABLED
+              value: "true"
+            - name: EUREKA_URL
+              value: http://eureka-discovery:9111/eureka/
+          volumeMounts:
+            - name: config-repo
+              mountPath: /config-repo
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9311
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 9311
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9311
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+      volumes:
+        - name: config-repo
+          configMap:
+            name: service-configs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: config-server
+spec:
+  type: ClusterIP
+  selector:
+    app: config-server
+  ports:
+    - port: 9311
+      targetPort: 9311

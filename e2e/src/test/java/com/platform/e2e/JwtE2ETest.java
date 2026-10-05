@@ -234,9 +234,11 @@ class JwtE2ETest {
 				"docker compose exec -T api-gateway").split(" ")));
 		command.addAll(List.of("curl", "-s", "-X", "POST", "http://auth-service:9141/api/v1/auth/login", "-H",
 				"Content-Type: application/json", "-d", body));
-		Process process = new ProcessBuilder(command).directory(composeDirectory()).redirectErrorStream(true).start();
+		// Only standard output is the response; kubectl writes notices to standard error.
+		Process process = new ProcessBuilder(command).directory(composeDirectory())
+				.redirectError(ProcessBuilder.Redirect.DISCARD).start();
 		String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-		assertThat(process.waitFor()).as(output).isZero();
+		assertThat(process.waitFor()).as("in-network login command").isZero();
 		return new JsonPath(output).getString("accessToken");
 	}
 

@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  labels:
+    app: auth-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      # Kubernetes would otherwise inject VAULT_PORT=tcp://... style variables that shadow the
+      # services' own settings.
+      enableServiceLinks: false
+      initContainers:
+        - name: wait-for-config-server
+          image: busybox:1.37
+          command: ["sh", "-c", "until wget -q -O /dev/null http://config-server:9311/actuator/health/readiness; do echo waiting for config-server; sleep 3; done"]
+        - name: wait-for-secrets
+          image: busybox:1.37
+          # The service's Vault token only works once the bootstrap job has seeded Vault.
+          command: ["sh", "-c", "until wget -q -O /dev/null --header \"X-Vault-Token: $VAULT_TOKEN\" http://vault:8200/v1/secret/data/auth-service; do echo waiting for bootstrap; sleep 3; done"]
+          env:
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-bootstrap
+                  key: AUTH_SERVICE_VAULT_TOKEN
+      containers:
+        - name: auth-service
+          image: identity-platform-auth-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9141
+          env:
+            - name: SERVER_PORT
+              value: "9141"
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
+            - name: CONFIG_SERVER_URL
+              value: http://config-server:9311
+            - name: VAULT_URI
+              value: http://vault:8200
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-bootstrap
+                  key: AUTH_SERVICE_VAULT_TOKEN
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9141
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 9141
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9141
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-service
+  ports:
+    - port: 9141
+      targetPort: 9141
