@@ -27,13 +27,13 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9211
+          # The environment's profile and addresses, supplied by the overlay.
+          envFrom:
+            - configMapRef:
+                name: platform-settings
           env:
             - name: SERVER_PORT
               value: "9211"
-            - name: SPRING_PROFILES_ACTIVE
-              value: k8s
-            - name: CONFIG_SERVER_URL
-              value: http://config-server:9311
           startupProbe:
             httpGet:
               path: /actuator/health/liveness

@@ -8,4 +8,4 @@ bin/
 # Local environment and generated secrets: never commit.
 .env
 .env.*
-!.env.example
+!.env.*.example

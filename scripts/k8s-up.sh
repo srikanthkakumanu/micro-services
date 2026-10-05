@@ -1,22 +1,30 @@
 #!/bin/sh
-# Deploys the platform to the local Kubernetes cluster (Docker Desktop): builds the images,
+# Deploys the platform to the current Kubernetes cluster (Docker Desktop locally): builds the images,
 # creates the bootstrap Secret from the generated .env, applies the dev overlay and waits for
 # everything to be ready. The Vault bootstrap runs as a Job inside the cluster.
 #
-# Usage: scripts/k8s-up.sh            deploy
-#        scripts/k8s-up.sh --delete   remove the namespace and everything in it
+# Usage: scripts/k8s-up.sh [dev|qa|prod]            deploy that overlay (default: dev)
+#        scripts/k8s-up.sh [dev|qa|prod] --delete   remove its namespace and everything in it
+#
+# Only dev is meant for the local cluster. The qa and prod overlays carry placeholder host names
+# and a placeholder Git remote for the configuration; set those before deploying them.
 set -eu
 cd "$(dirname "$0")/.."
 
-NAMESPACE=identity-dev
-OVERLAY=k8s/overlays/dev
+ENVIRONMENT=dev
+case "${1:-}" in
+  dev|qa|prod) ENVIRONMENT=$1; shift ;;
+esac
+NAMESPACE="identity-$ENVIRONMENT"
+OVERLAY="k8s/overlays/$ENVIRONMENT"
 
 if [ "${1:-}" = "--delete" ]; then
   kubectl delete namespace "$NAMESPACE" --ignore-not-found
   exit 0
 fi
 
-./scripts/init-env.sh
+# Only the generated secrets are taken from .env, so an existing one is reused as it is.
+[ -f .env ] || ./scripts/init-env.sh "$ENVIRONMENT"
 
 echo "==> Building images"
 docker compose build bootstrap eureka-discovery config-server user-service auth-service api-gateway
@@ -51,6 +59,11 @@ kubectl -n "$NAMESPACE" wait --for=condition=complete job/bootstrap --timeout=60
 for workload in user-service auth-service api-gateway; do
   kubectl -n "$NAMESPACE" rollout status "deployment/$workload" --timeout=600s
 done
+
+if [ "$ENVIRONMENT" != dev ]; then
+  echo "Deployed to namespace $NAMESPACE. It is reached through the Ingress in $OVERLAY."
+  exit 0
+fi
 
 cat <<INFO
 

@@ -29,7 +29,7 @@
 
 Keys are Spring property names (`spring.datasource.password`, `platform.keycloak.client-secret`), so Spring Cloud Vault binds them with no mapping code.
 
-**Vault auth.** Token auth. Services get their own token, limited to their own path; the dev root token is used only by the bootstrap container and is the one labelled dev-only value in `.env.example`.
+**Vault auth.** Token auth. Services get their own token, limited to their own path; the dev root token is used only by the bootstrap container and is the one labelled dev-only value in the `.env.<environment>.example` files.
 
 ## Consequences
 

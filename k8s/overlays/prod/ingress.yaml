@@ -1,0 +1,29 @@
+# How the prod environment is reached. The host names are placeholders: replace them, and add
+# TLS, for a real cluster. Only the gateway and Keycloak are exposed; there are no debugging ports.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: platform
+spec:
+  rules:
+    - host: identity.prod.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 9211
+    # The issuer URL in tokens and the links in emails.
+    - host: auth.prod.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 8080

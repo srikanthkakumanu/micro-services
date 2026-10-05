@@ -97,7 +97,7 @@ In `api-gateway`'s `application.yml`, copy an existing block. Put anything more 
     - Path=/api/v1/books,/api/v1/books/**
 ```
 
-Register the service with Eureka under the same name, and add `books-service.yml` (plus `-docker` and `-k8s`) to `service-configs` for its non-secret settings.
+Register the service with Eureka under the same name, and add `books-service.yml`, `books-service-dev.yml`, `books-service-qa.yml` and `books-service-prod.yml` to `service-configs` for its non-secret settings (ADR 0014).
 
 ## 5. Decisions a token cannot make
 

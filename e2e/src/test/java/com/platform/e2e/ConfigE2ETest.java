@@ -15,7 +15,7 @@ import static org.hamcrest.Matchers.hasItems;
 class ConfigE2ETest {
 
 	private static final String CONFIG_SERVER = System.getenv().getOrDefault("E2E_CONFIG_SERVER_URL", "http://localhost:9311");
-	private static final String PROFILE = System.getenv().getOrDefault("E2E_PROFILE", "docker");
+	private static final String PROFILE = System.getenv().getOrDefault("E2E_PROFILE", "dev");
 
 	@Test
 	void theConfigServerServesSharedServiceAndProfileConfigurationWithoutSecrets() {

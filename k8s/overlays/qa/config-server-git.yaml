@@ -1,0 +1,6 @@
+# In this environment the config server reads service-configs from Git, so the directory mounted
+# for development is taken out.
+- op: remove
+  path: /spec/template/spec/volumes
+- op: remove
+  path: /spec/template/spec/containers/0/volumeMounts

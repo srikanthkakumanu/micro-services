@@ -28,6 +28,8 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 
 - **Slice 10 – docs and Definition of Done.** ADRs 0002, 0009, 0010; `jwt-contract.md`; `integrating-a-new-service.md`; a README in each of the seven repositories. Sensitive operations in both services now check the caller's token by introspection (ADR 0009).
 
+- **Follow-up (2026-10-06) – environment profiles and legacy clean-up.** ADR 0014. Configuration is split into base, `dev`, `qa` and `prod` files in `service-configs` and in the bundled configuration of all five services; the `docker` and `k8s` profiles are gone. Compose takes the environment from `.env.<environment>.example` (`make up ENV=qa`); Kubernetes has `overlays/dev`, `qa` and `prod`. Removed: `micro-services/legacy/`, `micro-services/postgres-init/`, the books/video/reviews files in `service-configs`, and stale build output. Verified: all service builds pass; the Compose stack starts healthy with each of `dev`, `qa` and `prod`; a service started with `qa` and no settings refuses to start; all three overlays render and validate; the end-to-end suite passes on Compose and on Kubernetes with `dev`.
+
 ## Final verification (2026-10-05)
 
 | Check | Result |
@@ -66,14 +68,13 @@ ArchUnit layering rules exist in the two services that have layers. The gateway,
 
 ## Next
 
-3. Infrastructure: compose (Postgres, Keycloak, Vault, Mailpit), realm import, Vault bootstrap, Eureka, Config Server, `service-configs`
-4. user-service
-5. auth-service (authentication → password/sessions → roles/groups → permissions/decisions → clients → audit → tokens/keys/claims)
-6. api-gateway
-7. Docker
-8. End-to-end suite
-9. Kubernetes
-10. Docs and Definition of Done
+The approved clean-slate implementation scope (Slices 0-10) is complete. The remaining items are deferred decisions, not unfinished implementation phases:
+
+- GitHub Actions were explicitly left out of this rebuild.
+- Branches remain local; no push or pull request has been made for the clean-slate repositories.
+- MFA remains out of scope by owner decision.
+
+Start another implementation slice only after the owner updates those scope decisions or supplies a new requirement.
 
 ## Decisions
 
@@ -82,7 +83,8 @@ ArchUnit layering rules exist in the two services that have layers. The gateway,
 | Java 27 toolchain on Gradle 9.8.0 instead of `CLAUDE.md`'s Java 21 | Owner, 2026-10-05. Verified locally that Gradle 9.8.0 runs on Temurin 27. |
 | No MFA: TOTP/OTP, email-code and SMS authentication are out of scope, including the OTP login step, `/api/v1/auth/me/mfa`, the configure-OTP required action and lost-OTP removal | Owner, 2026-10-05. Deviates from `CLAUDE.md` §6, §7, §10, §15. |
 | Uncommitted work in the in-scope repos was discarded | Owner, 2026-10-05 |
-| books/video/reviews assets are parked, not deleted: `service-configs/*` for them and `postgres-init/` untouched, old compose/bake/k8s copied to `legacy/` | Owner, 2026-10-05 |
+| books/video/reviews assets were first parked (2026-10-05), then deleted from these repositories (2026-10-06) | Owner |
+| Configuration profiles are `dev`, `qa` and `prod`, replacing `docker` and `k8s` | Owner, 2026-10-06 (ADR 0014) |
 | Base packages `com.users`, `com.auth`, `com.gateway`, `com.discovery`, `com.config` | Owner, 2026-10-05 |
 | `micro-services` is the platform root: compose, k8s, realm, scripts, docs, ADRs, e2e module, shared version catalog and security starter | Discovery |
 | Realm name `platform`; ports kept (Eureka 9111, user 9121, auth 9141, gateway 9211, config 9311) | Discovery |
@@ -99,6 +101,9 @@ ArchUnit layering rules exist in the two services that have layers. The gateway,
 
 ## Open issues
 
+- The gateway answers 503 for the first seconds after it reports healthy, until it has fetched the registry from Eureka.
+- The `qa` and `prod` Kubernetes overlays have placeholder host names and a placeholder Git remote and have not been deployed. Locally, `qa` and `prod` run on the same dev-mode infrastructure as `dev`.
+
 - In the JWT validation scenario, "wrong `iss`" and "future `nbf`" are forged with a key the platform never published, because the platform itself will not sign such tokens. The claim checks themselves, with a valid signature, are covered by the security starter's tests.
 - Validators limit how often an unknown `kid` makes them refetch the JWKS (5 s). Under a flood of forged tokens, tokens signed by a key rotated in during that window are rejected until the next refetch.
 - Bean validation runs before method security, so a caller without the permission who sends an invalid body gets 400 rather than 403. Nothing is executed or disclosed either way.
@@ -113,5 +118,10 @@ ArchUnit layering rules exist in the two services that have layers. The gateway,
 - Keycloak adds `offline_access` and `uma_authorization` to the default role on import, so they show up in `realm_access.roles`. Harmless; decide in the JWT contract whether to strip them.
 - On this machine containers cannot reach `release-assets.githubusercontent.com`, so the Gradle wrapper cannot download its distribution inside an image build. The Dockerfiles take Gradle 9.8.0 from the official `gradle` image instead and the JDK from `eclipse-temurin:27-jdk`.
 
-- `postgres-init/init.sql` and the books/video/reviews files in `service-configs` still carry uncommitted modifications from before the rebuild. They were left exactly as found because they belong to the out-of-scope services.
-- The parked files in `legacy/` will not work against the new realm until those services are onboarded.
+- The parked books/video/reviews material (`legacy/`, `postgres-init/`, their `service-configs` files) was deleted on 2026-10-06 by owner decision, including its uncommitted edits. The committed versions remain on `master`.
+
+## Handoff (2026-10-06)
+
+- The current Docker Desktop development stack was already running when work resumed; its active `identity-platform` service containers reported healthy. No container was stopped, recreated or reset during this continuation.
+- The only remaining work in the approved scope is deferred as listed above. The isolated login/MFA verifier from the prior platform layout is not part of this clean-slate repository; MFA itself is explicitly excluded.
+- No commit, push, Kubernetes operation or existing data change was made in that continuation. (The parked files it mentions were removed afterwards; see the follow-up above.)

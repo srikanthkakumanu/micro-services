@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Local development on Docker Desktop Kubernetes. Build with:
+# Development on Docker Desktop Kubernetes. Build with:
 #   kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/dev
 # (scripts/k8s-up.sh does this; the flag lets the realm file and service-configs be read from
 # where they already live instead of being copied here).
@@ -15,20 +15,27 @@ resources:
 configMapGenerator:
   - name: platform-settings
     literals:
+      - SPRING_PROFILES_ACTIVE=dev
+      - CONFIG_SERVER_URL=http://config-server:9311
+      - KEYCLOAK_URL=http://keycloak:8080
+      - EUREKA_URL=http://eureka-discovery:9111/eureka/
+      # The URL Keycloak is published at on the host; it is the issuer in every token.
       - KEYCLOAK_PUBLIC_URL=http://localhost:30080
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
   - name: keycloak-realm
     files:
       - ../../../keycloak/platform-realm.json
   - name: postgres-init
     files:
       - ../../../postgres/init/01-create-databases.sh
+  # In dev the config server reads these files from a mounted directory.
   - name: service-configs
     files:
       - ../../../../service-configs/application.yml
-      - ../../../../service-configs/application-k8s.yml
+      - ../../../../service-configs/application-dev.yml
       - ../../../../service-configs/user-service.yml
-      - ../../../../service-configs/user-service-k8s.yml
+      - ../../../../service-configs/user-service-dev.yml
       - ../../../../service-configs/auth-service.yml
-      - ../../../../service-configs/auth-service-k8s.yml
+      - ../../../../service-configs/auth-service-dev.yml
       - ../../../../service-configs/api-gateway.yml
-      - ../../../../service-configs/api-gateway-k8s.yml
+      - ../../../../service-configs/api-gateway-dev.yml

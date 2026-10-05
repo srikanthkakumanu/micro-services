@@ -1,7 +1,17 @@
 # Local development stack. Start with `make up`; see README.md.
-# Secrets come from .env (generated, git-ignored) and are copied into Vault by the bootstrap job.
+# Settings come from .env, generated from .env.<environment>.example by `make up ENV=<environment>`.
+# Its secrets are random and are copied into Vault by the bootstrap job.
 
 name: identity-platform
+
+# What every platform service needs to know about its surroundings inside the Compose network.
+# ENVIRONMENT (dev, qa or prod) selects the Spring profile and with it the configuration files.
+x-platform-addresses: &platform-addresses
+  SPRING_PROFILES_ACTIVE: ${ENVIRONMENT}
+  CONFIG_SERVER_URL: http://config-server:9311
+  KEYCLOAK_URL: http://keycloak:8080
+  KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL}
+  EUREKA_URL: http://eureka-discovery:9111/eureka/
 
 services:
   postgres:
@@ -121,6 +131,7 @@ services:
       additional_contexts:
         platform: .
     environment:
+      SPRING_PROFILES_ACTIVE: ${ENVIRONMENT}
       EUREKA_INSTANCE_HOSTNAME: eureka-discovery
     ports:
       - "${EUREKA_PORT}:9111"
@@ -131,7 +142,11 @@ services:
       additional_contexts:
         platform: .
     environment:
+      SPRING_PROFILES_ACTIVE: ${ENVIRONMENT}
+      # The mounted service-configs checkout. qa and prod read Git by default; locally they are
+      # told to read this directory too (CONFIG_REPO_TYPE in the env file).
       CONFIG_REPO_LOCATION: file:/config-repo
+      CONFIG_REPO_TYPE: ${CONFIG_REPO_TYPE:-native}
       VAULT_HOST: vault
       EUREKA_ENABLED: "true"
       EUREKA_URL: http://eureka-discovery:9111/eureka/
@@ -151,8 +166,8 @@ services:
       additional_contexts:
         platform: .
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-      CONFIG_SERVER_URL: http://config-server:9311
+      <<: *platform-addresses
+      DATABASE_URL: jdbc:postgresql://postgres:5432/user_db
       VAULT_URI: http://vault:8200
       VAULT_TOKEN: ${USER_SERVICE_VAULT_TOKEN}
     ports:
@@ -169,8 +184,8 @@ services:
       additional_contexts:
         platform: .
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-      CONFIG_SERVER_URL: http://config-server:9311
+      <<: *platform-addresses
+      DATABASE_URL: jdbc:postgresql://postgres:5432/auth_db
       VAULT_URI: http://vault:8200
       VAULT_TOKEN: ${AUTH_SERVICE_VAULT_TOKEN}
     ports:
@@ -187,8 +202,8 @@ services:
       additional_contexts:
         platform: .
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-      CONFIG_SERVER_URL: http://config-server:9311
+      <<: *platform-addresses
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
     ports:
       - "${GATEWAY_PORT}:9211"
     depends_on:

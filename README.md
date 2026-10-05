@@ -14,7 +14,6 @@ Development environment only.
 | `e2e/` | End-to-end suite |
 | `k8s/` | Kustomize base and dev overlay |
 | `docs/` | ADRs, the token contract, the integration guide, progress |
-| `legacy/`, `postgres-init/` | Parked files of services that are not onboarded yet. Not used by the platform. |
 
 The service repositories must be checked out next to this one: `user-service`, `auth-service`, `api-gateway`, `eureka-discovery`, `cloud-config-service`, `service-configs`.
 
@@ -23,7 +22,8 @@ The service repositories must be checked out next to this one: `user-service`, `
 Needs Docker, JDK 27 and `make`.
 
 ```bash
-make up        # generate .env, build images, start everything, wait until healthy
+make up        # generate .env, build images, start everything, wait until healthy (dev)
+make up ENV=qa # the same stack with the qa configuration; also ENV=prod
 make ps        # status
 make logs      # follow logs
 make down      # stop, keep data and secrets
@@ -39,6 +39,8 @@ make reset     # stop and delete volumes and generated secrets
 | Vault | http://localhost:8200 |
 | user-service, auth-service directly | http://localhost:9121, http://localhost:9141 |
 | Eureka, Config Server | http://localhost:9111, http://localhost:9311 |
+
+Configuration is split by environment: `dev`, `qa` and `prod` ([ADR 0014](docs/adr/0014-environment-profiles.md)). Switching environment needs `make reset` first. The gateway answers 503 for the first seconds after start, until the services have registered with Eureka.
 
 The bootstrap administrator is `platform-admin`; its password is `PLATFORM_ADMIN_PASSWORD` in the generated `.env`.
 
@@ -59,7 +61,7 @@ Each service has its own `./gradlew build`, which needs Docker for Testcontainer
 
 ## Kubernetes
 
-Targets Docker Desktop Kubernetes, namespace `identity-dev`.
+Targets Docker Desktop Kubernetes, namespace `identity-dev`. `k8s/overlays/qa` and `k8s/overlays/prod` are the same deployment with the qa and prod configuration; they carry placeholder host names and are not deployed by these targets.
 
 ```bash
 make k8s-up             # build, apply, wait for rollout, bootstrap
@@ -71,7 +73,7 @@ Gateway at http://localhost:30211, Keycloak at http://localhost:30080, Mailpit a
 
 ## Secrets
 
-Nothing secret is in Git. `make up` generates `.env` with random dev passwords. The bootstrap job copies them into Vault, generates the client secrets and applies them to Keycloak. Services read from Vault with their own, policy-limited token. The one fixed value is the dev Vault root token in `.env.example`, labelled as such. See [ADR 0008](docs/adr/0008-secrets-bootstrap.md).
+Nothing secret is in Git. `make up` generates `.env` with random dev passwords. The bootstrap job copies them into Vault, generates the client secrets and applies them to Keycloak. Services read from Vault with their own, policy-limited token. The one fixed value is the dev Vault root token in the `.env.<environment>.example` files, labelled as such. See [ADR 0008](docs/adr/0008-secrets-bootstrap.md).
 
 ## Documentation
 
