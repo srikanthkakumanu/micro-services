@@ -1,3 +1,8 @@
 rootProject.name = 'identity-platform'
 
 include 'platform-security-starter'
+
+// The end-to-end suite is not part of service image builds, where only the starter is copied in.
+if (file('e2e').exists()) {
+	include 'e2e'
+}

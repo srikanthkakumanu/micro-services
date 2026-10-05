@@ -12,6 +12,8 @@ mapstruct = "1.6.3"
 archunit = "1.5.1"
 testcontainers-keycloak = "4.4.0"
 jacoco = "0.8.15"
+rest-assured = "6.0.1"
+nimbus-jose-jwt = "10.9.1"
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
@@ -27,4 +29,6 @@ mapstruct = { module = "org.mapstruct:mapstruct", version.ref = "mapstruct" }
 mapstruct-processor = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstruct" }
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
 testcontainers-keycloak = { module = "com.github.dasniko:testcontainers-keycloak", version.ref = "testcontainers-keycloak" }
+rest-assured = { module = "io.rest-assured:rest-assured", version.ref = "rest-assured" }
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
 platform-security-starter = { module = "com.platform:platform-security-starter", version = "1.0.0" }

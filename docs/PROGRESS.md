@@ -22,9 +22,11 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 - **Slice 6 – api-gateway.** Routes via Eureka with `/api/v1/users/{id}/roles|groups|permissions` ahead of `/api/v1/users/**`, public allow-list, token relay, correlation ID, CORS, OIDC discovery and JWKS pass-through, OpenAPI documents of both services behind `/docs/<service>/v3/api-docs` and one Swagger UI. 46 tests, none skipped. The security starter now has a configurable JWKS cache lifetime shared by servlet and reactive decoders (35 tests), so a retired signing key stops being trusted (15 s in dev).
 - **Slice 7 – Docker.** Multi-stage Dockerfiles for all five Spring services (JDK 27 build, JRE 27 Alpine runtime, non-root, healthcheck). `make reset && make up` brings ten containers up healthy from a clean state; verified through the gateway: login, protected calls to both services, the user-roles route, discovery documents, 401 without a token.
 
+- **Slice 8 – end-to-end suite.** REST Assured module `e2e`, run with `make test-e2e` against the running stack. 20 tests, none skipped, all passing, covering every §15.7 scenario except the MFA steps: self-service (register, verify email from Mailpit, login, profile, refresh, change password, sessions, logout), user admin, access admin with token checks, decisions, sessions, onboarding `sample-service` and secret rotation, guards, audit, JWT validation at the gateway and at each service directly, the JWT contract and custom claims, key rotation, lifetimes and refresh reuse, token exchange, issuer consistency between host and container network, and configuration. All test data is created through the APIs.
+
 ## In progress
 
-- Slice 8 – end-to-end suite.
+- Slice 9 – Kubernetes.
 
 ## Next
 
@@ -60,6 +62,10 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 - Local Kubernetes target is Docker Desktop (the only cluster present).
 
 ## Open issues
+
+- In the JWT validation scenario, "wrong `iss`" and "future `nbf`" are forged with a key the platform never published, because the platform itself will not sign such tokens. The claim checks themselves, with a valid signature, are covered by the security starter's tests.
+- Validators limit how often an unknown `kid` makes them refetch the JWKS (5 s). Under a flood of forged tokens, tokens signed by a key rotated in during that window are rejected until the next refetch.
+- Bean validation runs before method security, so a caller without the permission who sends an invalid body gets 400 rather than 403. Nothing is executed or disclosed either way.
 
 - After a signing key is disabled, the identity provider rejects its tokens at once; a service rejects them when its JWKS cache expires (`platform.security.jwt.jwk-set-cache-ttl`, 15 s in dev, 5 min default).
 - Keycloak admin events name the platform's service account as the actor. The person behind a change is on the matching `API` audit event recorded by auth-service; user-service does not record API events yet.

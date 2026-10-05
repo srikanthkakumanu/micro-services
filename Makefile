@@ -24,3 +24,6 @@ logs: ## Follow the logs of all services
 
 ps: ## Show service status
 	$(COMPOSE) ps
+
+test-e2e: ## Run the end-to-end suite against the running stack
+	./gradlew :e2e:e2eTest

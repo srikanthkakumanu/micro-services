@@ -1,0 +1,48 @@
+plugins {
+	id 'java'
+}
+
+description = 'End-to-end tests against the running Docker Compose (or Kubernetes) stack'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(libs.versions.java.get() as int)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	testImplementation platform(libs.spring.boot.dependencies)
+	testImplementation libs.rest.assured
+	// REST Assured serialises request bodies with Jackson 2.
+	testImplementation 'com.fasterxml.jackson.core:jackson-databind'
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testImplementation 'org.assertj:assertj-core'
+	// Only to forge tokens for the validation tests; matches the version the services verify with.
+	testImplementation libs.nimbus.jose.jwt
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// These tests need the stack to be up, so they are not part of `build`. Run them with
+// `make test-e2e` (or ./gradlew :e2e:e2eTest).
+tasks.named('test') {
+	enabled = false
+}
+
+tasks.register('e2eTest', Test) {
+	description = 'Runs the end-to-end suite against the running stack.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform()
+	outputs.upToDateWhen { false }
+	// E2E_* variables point the suite at another environment, for example the Kubernetes one.
+	environment System.getenv().findAll { it.key.startsWith('E2E_') }
+	testLogging {
+		events 'failed'
+		exceptionFormat 'full'
+	}
+}
