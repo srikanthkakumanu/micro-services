@@ -502,6 +502,40 @@
           }
         }
       ]
+    },
+    {
+      "name": "platform-claims",
+      "description": "Custom claims added through /api/v1/token-claims; empty at bootstrap",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": []
+    },
+    {
+      "name": "service-audience-user-service",
+      "description": "Audience for service tokens that call user-service",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "user-service audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true",
+            "included.client.audience": "user-service"
+          }
+        }
+      ]
     }
   ],
   "defaultDefaultClientScopes": [
@@ -588,7 +622,8 @@
         "roles",
         "platform-permissions",
         "platform-groups",
-        "platform-audience"
+        "platform-audience",
+        "platform-claims"
       ],
       "optionalClientScopes": []
     },
@@ -621,7 +656,8 @@
         "roles",
         "platform-permissions",
         "platform-groups",
-        "platform-audience"
+        "platform-audience",
+        "platform-claims"
       ],
       "optionalClientScopes": []
     }
