@@ -15,9 +15,11 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 
 - **Slice 5a/5b – auth-service authentication, password and sessions.** ADR 0005. Login, refresh (rotating, reuse rejected), logout, logout-all, introspect, revoke, who-am-I, service tokens, change own password, list own credentials, own and admin sessions, admin sign-out-everywhere. 61 tests, none skipped (12 domain, 13 use-case, 7 ArchUnit, 11 adapter tests against Keycloak 26.8.0, 11 controller slice, 7 full-context); `domain` + `application` line coverage 97.0%. Runs in Compose; a token from `POST /api/v1/auth/login` is accepted by user-service.
 
+- **Slice 5c/5d (part) – roles, groups, role mappings, user groups, permissions.** ADR 0004. Realm and client role CRUD, composites, holders; group CRUD with subgroups, move, attributes, members and role mappings; user role assignment with direct and effective views; user groups; permission CRUD per service, attach and detach, a user's effective permissions. Escalation guards are domain rules. auth-service is now at 128 tests, none skipped, 98.9% line coverage on `domain` + `application`. Verified against Keycloak 26.8.0 that a role mapped to a parent group reaches a subgroup member's token, that a newly created and attached permission appears after refresh, and that revocation is reflected after refresh.
+
 ## In progress
 
-- Slice 5c–5g – auth-service authorization model: roles and groups, permissions and decisions, service clients, audit, tokens/keys/claims.
+- Slice 5d (rest)–5g – policy decisions, service clients, audit, tokens/keys/claims.
 
 ## Next
 
