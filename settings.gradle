@@ -1,0 +1,3 @@
+rootProject.name = 'identity-platform'
+
+include 'platform-security-starter'

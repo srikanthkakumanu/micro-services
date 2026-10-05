@@ -1,0 +1,49 @@
+plugins {
+	id 'java-library'
+	id 'jacoco'
+}
+
+group = 'com.platform'
+version = '1.0.0'
+description = 'JWT validation, claim value objects and authority mapping shared by platform services'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(libs.versions.java.get() as int)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	api platform(libs.spring.boot.dependencies)
+	api 'org.springframework.security:spring-security-oauth2-resource-server'
+	api 'org.springframework.security:spring-security-oauth2-jose'
+	implementation 'org.springframework.boot:spring-boot-autoconfigure'
+	implementation 'org.springframework.security:spring-security-config'
+
+	// Only present in reactive applications such as the gateway.
+	compileOnly 'org.springframework:spring-webflux'
+	compileOnly 'io.projectreactor:reactor-core'
+
+	annotationProcessor platform(libs.spring.boot.dependencies)
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework:spring-webflux'
+	testImplementation 'org.springframework:spring-webmvc'
+	testImplementation 'jakarta.servlet:jakarta.servlet-api'
+	testImplementation 'io.projectreactor:reactor-core'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+jacoco {
+	toolVersion = libs.versions.jacoco.get()
+}
+
+test {
+	useJUnitPlatform()
+	finalizedBy jacocoTestReport
+}

@@ -1,6 +1,11 @@
-.idea
-*.log
-/vault/config/init-vault-secrets.sh
-
-# VS Code workspace settings
+.gradle/
+build/
+bin/
+.idea/
 .vscode/
+*.log
+
+# Local environment and generated secrets: never commit.
+.env
+.env.*
+!.env.example
