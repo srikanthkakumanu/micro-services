@@ -33,6 +33,6 @@ class PlatformJwtPropertiesTest {
 
 	private static PlatformJwtProperties properties(List<String> algorithms) {
 		return new PlatformJwtProperties("http://issuer", "http://issuer/certs", "user-service",
-				Duration.ofSeconds(30), algorithms, "Bearer");
+				Duration.ofSeconds(30), algorithms, "Bearer", Duration.ofSeconds(1), Duration.ZERO);
 	}
 }

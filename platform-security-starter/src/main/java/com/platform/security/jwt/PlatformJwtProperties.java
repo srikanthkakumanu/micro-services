@@ -17,6 +17,10 @@ import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
  * @param clockSkew tolerance applied to {@code exp} and {@code nbf}
  * @param algorithms allowed asymmetric signature algorithms
  * @param requiredType expected {@code typ} claim
+ * @param jwkSetCacheTtl how long fetched keys are trusted before they are fetched again; this bounds
+ * how long tokens signed by a retired key are still accepted
+ * @param jwkSetRefreshMinInterval shortest time between two fetches triggered by unknown key IDs,
+ * so a flood of forged tokens cannot make the service hammer the identity provider; zero disables it
  */
 @ConfigurationProperties("platform.security.jwt")
 public record PlatformJwtProperties(
@@ -25,7 +29,9 @@ public record PlatformJwtProperties(
 		String audience,
 		@DefaultValue("30s") Duration clockSkew,
 		@DefaultValue("RS256") List<String> algorithms,
-		@DefaultValue("Bearer") String requiredType) {
+		@DefaultValue("Bearer") String requiredType,
+		@DefaultValue("5m") Duration jwkSetCacheTtl,
+		@DefaultValue("5s") Duration jwkSetRefreshMinInterval) {
 
 	/** Resolves the allowlist; symmetric algorithms and {@code none} can never be configured. */
 	public List<SignatureAlgorithm> signatureAlgorithms() {

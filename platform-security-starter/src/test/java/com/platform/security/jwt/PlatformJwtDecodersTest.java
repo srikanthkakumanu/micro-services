@@ -123,6 +123,35 @@ class PlatformJwtDecodersTest {
 	}
 
 	@Test
+	void stopsTrustingARetiredKeyOnceTheKeyCacheHasExpired() throws Exception {
+		String oldToken = idp.validToken();
+		idp.rotateSigningKey();
+		decoder.decode(idp.validToken());
+		decoder.decode(oldToken);
+
+		idp.retirePassiveKeys();
+		Thread.sleep(1200);
+
+		assertRejected(oldToken);
+		decoder.decode(idp.validToken());
+	}
+
+	@Test
+	void reactiveDecoderHandlesRotationAndRetirementToo() throws Exception {
+		ReactiveJwtDecoder reactive = PlatformJwtDecoders.reactive(properties());
+		String oldToken = idp.validToken();
+		reactive.decode(oldToken).block();
+
+		idp.rotateSigningKey();
+		assertThat(reactive.decode(idp.validToken()).block().getHeaders()).containsEntry("kid", idp.currentKeyId());
+		reactive.decode(oldToken).block();
+
+		idp.retirePassiveKeys();
+		Thread.sleep(1200);
+		assertThatExceptionOfType(JwtException.class).isThrownBy(() -> reactive.decode(oldToken).block());
+	}
+
+	@Test
 	void reactiveDecoderAppliesTheSameRules() {
 		ReactiveJwtDecoder reactive = PlatformJwtDecoders.reactive(properties());
 
@@ -131,6 +160,11 @@ class PlatformJwtDecodersTest {
 				.isThrownBy(() -> reactive.decode(idp.hmacSignedToken()).block());
 		assertThatExceptionOfType(JwtException.class)
 				.isThrownBy(() -> reactive.decode(idp.unsignedToken()).block());
+		assertThatExceptionOfType(JwtException.class)
+				.isThrownBy(() -> reactive.decode(TestIdentityProvider.tamper(idp.validToken())).block());
+		assertThatExceptionOfType(JwtException.class)
+				.isThrownBy(() -> reactive.decode(idp.tokenSignedByUnknownKey()).block());
+		assertThatExceptionOfType(JwtException.class).isThrownBy(() -> reactive.decode("not.a.token").block());
 		assertThatExceptionOfType(JwtValidationException.class).isThrownBy(
 				() -> reactive.decode(idp.token(claims -> claims.audience("auth-service"))).block());
 	}
@@ -138,11 +172,11 @@ class PlatformJwtDecodersTest {
 	@Test
 	void requiresIssuerAudienceAndJwkSetUri() {
 		assertThatIllegalArgumentException().isThrownBy(() -> PlatformJwtDecoders.servlet(
-				new PlatformJwtProperties(null, idp.jwkSetUri(), "user-service", Duration.ZERO, List.of("RS256"), "Bearer")));
+				new PlatformJwtProperties(null, idp.jwkSetUri(), "user-service", Duration.ZERO, List.of("RS256"), "Bearer", Duration.ofSeconds(1), Duration.ZERO)));
 		assertThatIllegalArgumentException().isThrownBy(() -> PlatformJwtDecoders.servlet(
-				new PlatformJwtProperties("http://issuer", idp.jwkSetUri(), " ", Duration.ZERO, List.of("RS256"), "Bearer")));
+				new PlatformJwtProperties("http://issuer", idp.jwkSetUri(), " ", Duration.ZERO, List.of("RS256"), "Bearer", Duration.ofSeconds(1), Duration.ZERO)));
 		assertThatIllegalArgumentException().isThrownBy(() -> PlatformJwtDecoders.reactive(
-				new PlatformJwtProperties("http://issuer", null, "user-service", Duration.ZERO, List.of("RS256"), "Bearer")));
+				new PlatformJwtProperties("http://issuer", null, "user-service", Duration.ZERO, List.of("RS256"), "Bearer", Duration.ofSeconds(1), Duration.ZERO)));
 	}
 
 	private void assertRejected(String token) {
@@ -156,6 +190,6 @@ class PlatformJwtDecodersTest {
 
 	private PlatformJwtProperties properties() {
 		return new PlatformJwtProperties(TestIdentityProvider.ISSUER, idp.jwkSetUri(),
-				TestIdentityProvider.AUDIENCE, Duration.ofSeconds(30), List.of("RS256"), "Bearer");
+				TestIdentityProvider.AUDIENCE, Duration.ofSeconds(30), List.of("RS256"), "Bearer", Duration.ofSeconds(1), Duration.ZERO);
 	}
 }

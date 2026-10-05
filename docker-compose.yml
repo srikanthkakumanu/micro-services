@@ -181,5 +181,21 @@ services:
       postgres:
         condition: service_healthy
 
+  api-gateway:
+    build:
+      context: ../api-gateway
+      additional_contexts:
+        platform: .
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVER_URL: http://config-server:9311
+    ports:
+      - "${GATEWAY_PORT}:9211"
+    depends_on:
+      user-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+
 volumes:
   postgres-data:
