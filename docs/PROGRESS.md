@@ -13,9 +13,11 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 
 - **Slice 4 – user-service.** ADRs 0006, 0007, 0012. Every `user` row of the §7 catalog except the MFA parts: registration, public password-reset request, user CRUD and search, enable/disable/lock/unlock, own and admin profile, account actions, admin credentials. 137 tests, none skipped: 60 domain, 33 use-case, 7 ArchUnit rules, 15 Keycloak adapter tests against Keycloak 26.8.0 with the realm file and Mailpit, 5 JPA tests against Postgres 18, 22 controller slice tests, 5 full-context tests with Keycloak-issued tokens. Line coverage on `domain` + `application`: 99.1% (build fails below 80%). Runs in Compose with the `docker` profile, config from the Config Server and secrets from Vault; a token obtained from the host is accepted inside the network.
 
+- **Slice 5a/5b – auth-service authentication, password and sessions.** ADR 0005. Login, refresh (rotating, reuse rejected), logout, logout-all, introspect, revoke, who-am-I, service tokens, change own password, list own credentials, own and admin sessions, admin sign-out-everywhere. 61 tests, none skipped (12 domain, 13 use-case, 7 ArchUnit, 11 adapter tests against Keycloak 26.8.0, 11 controller slice, 7 full-context); `domain` + `application` line coverage 97.0%. Runs in Compose; a token from `POST /api/v1/auth/login` is accepted by user-service.
+
 ## In progress
 
-- Slice 5 – auth-service.
+- Slice 5c–5g – auth-service authorization model: roles and groups, permissions and decisions, service clients, audit, tokens/keys/claims.
 
 ## Next
 
@@ -41,6 +43,9 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 | Realm name `platform`; ports kept (Eureka 9111, user 9121, auth 9141, gateway 9211, config 9311) | Discovery |
 
 ## Assumptions
+
+- `POST /api/v1/auth/service-token` is public in addition to the endpoints `CLAUDE.md` lists: a service has no token yet and authenticates with its client secret in the body.
+- `GET /api/v1/auth/me` answers from the caller's validated token, so it reflects role changes after the next refresh.
 
 - Email verification and password-reset emails are account actions, not authentication, so they stay in scope and use Mailpit.
 - Eureka and Config Server run without HTTP Basic inside the dev network, behind a property.

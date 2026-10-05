@@ -163,5 +163,23 @@ services:
       postgres:
         condition: service_healthy
 
+  auth-service:
+    build:
+      context: ../auth-service
+      additional_contexts:
+        platform: .
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      CONFIG_SERVER_URL: http://config-server:9311
+      VAULT_URI: http://vault:8200
+      VAULT_TOKEN: ${AUTH_SERVICE_VAULT_TOKEN}
+    ports:
+      - "${AUTH_SERVICE_PORT}:9141"
+    depends_on:
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:
