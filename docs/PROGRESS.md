@@ -17,9 +17,11 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 
 - **Slice 5c/5d (part) – roles, groups, role mappings, user groups, permissions.** ADR 0004. Realm and client role CRUD, composites, holders; group CRUD with subgroups, move, attributes, members and role mappings; user role assignment with direct and effective views; user groups; permission CRUD per service, attach and detach, a user's effective permissions. Escalation guards are domain rules. auth-service is now at 128 tests, none skipped, 98.9% line coverage on `domain` + `application`. Verified against Keycloak 26.8.0 that a role mapped to a parent group reaches a subgroup member's token, that a newly created and attached permission appears after refresh, and that revocation is reflected after refresh.
 
+- **Slice 5d–5g – decisions, service clients, audit, tokens, keys, claims.** Single and batch decisions (permission and ownership rules); service-client register, update, enable/disable, delete, secret rotation to Vault, service-account roles; audit of login, admin and API events persisted in `auth_db`; token inspect, introspect, revoke and standard token exchange; token settings; signing-key rotation with the create → passive → disable → delete order enforced; custom claims platform-wide and per client. auth-service is complete for the §7 catalog except MFA: 207 tests, none skipped, 99.0% line coverage on `domain` + `application`. Verified against Keycloak 26.8.0, Vault 2.1.1 and Postgres 18: a service onboarded only through the API gets a working client-credentials token with its permission and audience; rotating its secret invalidates the old one; token exchange narrows `aud` to the target service; after key rotation old tokens stay valid and new ones carry the new `kid`; a custom claim appears on next login and disappears after removal.
+
 ## In progress
 
-- Slice 5d (rest)–5g – policy decisions, service clients, audit, tokens/keys/claims.
+- Slice 6 – api-gateway.
 
 ## Next
 
@@ -55,6 +57,10 @@ Resume point for the clean-slate identity platform build. Branch in every in-sco
 - Local Kubernetes target is Docker Desktop (the only cluster present).
 
 ## Open issues
+
+- JWKS caching: services keep fetched keys for a few minutes, so after a signing key is disabled its tokens are rejected by the identity provider at once but by a service only when its cache expires. A short, configurable JWKS cache lifetime in the security starter is needed before the end-to-end key-rotation scenario can assert immediate rejection.
+- Keycloak admin events name the platform's service account as the actor. The person behind a change is on the matching `API` audit event recorded by auth-service; user-service does not record API events yet.
+- A registered service is added to the audience of every platform user token, so it can accept user tokens directly. Narrower tokens are available through token exchange.
 
 - user-service does not yet offer the read-only view of a user's roles, groups and permissions; it is added once auth-service exposes them.
 - Introspection of the caller's token on sensitive user-service operations (credential changes) is not wired yet; it needs auth-service's introspection endpoint.
