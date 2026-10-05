@@ -25,10 +25,6 @@ spec:
           image: busybox:1.37
           # The service's Vault token only works once the bootstrap job has seeded Vault.
           command: ["sh", "-c", "until wget -q -O /dev/null --header \"X-Vault-Token: $VAULT_TOKEN\" http://vault:8200/v1/secret/data/auth-service; do echo waiting for bootstrap; sleep 3; done"]
-          # The environment's profile and addresses, supplied by the overlay.
-          envFrom:
-            - configMapRef:
-                name: platform-settings
           env:
             - name: VAULT_TOKEN
               valueFrom:
@@ -41,6 +37,10 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9141
+          # The environment's profile and addresses, supplied by the overlay.
+          envFrom:
+            - configMapRef:
+                name: platform-settings
           env:
             - name: SERVER_PORT
               value: "9141"

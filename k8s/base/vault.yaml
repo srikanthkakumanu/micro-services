@@ -38,13 +38,20 @@ spec:
             capabilities:
               add: ["IPC_LOCK"]
           readinessProbe:
-            exec:
-              command: ["vault", "status"]
+            httpGet:
+              path: /v1/sys/health
+              port: 8200
             periodSeconds: 5
+            timeoutSeconds: 5
+          # Dev-mode Vault keeps everything in memory, so a restart loses every secret. The
+          # liveness probe is deliberately slow to give up: a busy node must not kill it.
           livenessProbe:
-            exec:
-              command: ["vault", "status"]
+            httpGet:
+              path: /v1/sys/health
+              port: 8200
             periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 6
           resources:
             requests:
               cpu: 50m

@@ -13,6 +13,7 @@
 - **Secrets:** nothing secret is committed. `scripts/k8s-up.sh` creates the Secret `platform-bootstrap` from the local, git-ignored `.env`. It holds what must exist before Vault does (database passwords for Postgres and Keycloak, the Keycloak console password, the dev Vault root token) and each service's Vault token. Everything a service needs at runtime it reads from Vault.
 - **Service links are off** (`enableServiceLinks: false`). Kubernetes otherwise injects variables such as `VAULT_PORT=tcp://...`, which shadowed the Config Server's own `VAULT_PORT` setting.
 - **Image tags:** `scripts/k8s-up.sh` gives every deployment a fresh image tag. With `:latest` the node kept running the image it already had for that tag, so a rebuilt service was not picked up.
+- **Vault probes:** HTTP probes with a generous liveness timeout. Dev-mode Vault is in memory, and an exec probe with the default one-second timeout once restarted it on a busy node, which silently invalidated every secret and token.
 - **Start order:** init containers wait for the Config Server and for the bootstrap Job to have seeded Vault, instead of letting pods crash-loop.
 
 ## Consequences
