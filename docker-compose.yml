@@ -8,7 +8,8 @@
 #
 # Order (also what scripts/start.sh follows):
 #   vault -> vault-seed -> secrets-fetch -> postgres -> db-init -> keycloak -> keycloak-bootstrap
-#   -> eureka, config-server -> user-service, auth-service -> api-gateway -> onboard -> books-service
+#   -> eureka, config-server -> user-service, auth-service -> api-gateway -> onboard
+#   -> books-service, video-service
 
 name: identity-platform
 
@@ -78,6 +79,7 @@ services:
       USER_SERVICE_VAULT_TOKEN: ${USER_SERVICE_VAULT_TOKEN}
       AUTH_SERVICE_VAULT_TOKEN: ${AUTH_SERVICE_VAULT_TOKEN}
       BOOKS_SERVICE_VAULT_TOKEN: ${BOOKS_SERVICE_VAULT_TOKEN}
+      VIDEO_SERVICE_VAULT_TOKEN: ${VIDEO_SERVICE_VAULT_TOKEN}
       CONFIG_SERVER_VAULT_TOKEN: ${CONFIG_SERVER_VAULT_TOKEN}
     depends_on:
       vault:
@@ -316,6 +318,28 @@ services:
       VAULT_TOKEN: ${BOOKS_SERVICE_VAULT_TOKEN}
     ports:
       - "${BOOKS_SERVICE_PORT}:9151"
+    depends_on:
+      onboard:
+        condition: service_completed_successfully
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  video-service:
+    # Time to finish requests in flight and deregister before the container is killed.
+    stop_grace_period: 40s
+    build:
+      context: ../video-service
+      additional_contexts:
+        platform: .
+    environment:
+      <<: *platform-addresses
+      DATABASE_URL: jdbc:postgresql://postgres:5432/videodb
+      VAULT_URI: http://vault:8200
+      VAULT_TOKEN: ${VIDEO_SERVICE_VAULT_TOKEN}
+    ports:
+      - "${VIDEO_SERVICE_PORT}:9161"
     depends_on:
       onboard:
         condition: service_completed_successfully

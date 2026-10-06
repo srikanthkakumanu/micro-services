@@ -19,3 +19,4 @@ resources:
   - auth-service.yaml
   - api-gateway.yaml
   - books-service.yaml
+  - video-service.yaml

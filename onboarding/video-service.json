@@ -1,0 +1,64 @@
+{
+  "client": {
+    "clientId": "video-service",
+    "name": "Videos",
+    "description": "Videos, their completion state and who owns them",
+    "audiences": [
+      "user-service"
+    ]
+  },
+  "permissions": [
+    {
+      "name": "videos:read",
+      "description": "Read videos"
+    },
+    {
+      "name": "videos:write",
+      "description": "Add videos and change or remove your own"
+    },
+    {
+      "name": "videos:manage",
+      "description": "Change or remove any video and transfer ownership"
+    }
+  ],
+  "roles": [
+    {
+      "name": "VIDEO_READER",
+      "description": "Reads videos",
+      "permissions": [
+        "videos:read"
+      ]
+    },
+    {
+      "name": "VIDEO_EDITOR",
+      "description": "Reads videos and keeps their own",
+      "permissions": [
+        "videos:read",
+        "videos:write"
+      ]
+    },
+    {
+      "name": "VIDEO_MANAGER",
+      "description": "Manages every video",
+      "permissions": [
+        "videos:read",
+        "videos:write",
+        "videos:manage"
+      ]
+    },
+    {
+      "name": "PLATFORM_ADMIN",
+      "permissions": [
+        "videos:read",
+        "videos:write",
+        "videos:manage"
+      ]
+    }
+  ],
+  "serviceAccountRoles": [
+    {
+      "name": "users:read",
+      "clientId": "user-service"
+    }
+  ]
+}

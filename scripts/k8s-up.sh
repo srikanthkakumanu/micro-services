@@ -28,9 +28,9 @@ fi
 if [ -f .env ]; then ./scripts/init-env.sh "$(sed -n 's/^ENVIRONMENT=//p' .env)"; else ./scripts/init-env.sh "$ENVIRONMENT"; fi
 
 echo "==> Building images"
-IMAGES="bootstrap eureka-discovery config-server user-service auth-service api-gateway books-service"
+IMAGES="bootstrap eureka-discovery config-server user-service auth-service api-gateway books-service video-service"
 # The bootstrap image is shared by every one-shot job; building one of them builds it.
-docker compose build vault-seed eureka-discovery config-server user-service auth-service api-gateway books-service
+docker compose build vault-seed eureka-discovery config-server user-service auth-service api-gateway books-service video-service
 
 # Each deployment gets its own image tag. A node keeps the image it already has for a tag, so
 # re-using :latest would leave the previous build running.
@@ -71,7 +71,7 @@ completed keycloak-bootstrap
 rolled_out deployment/eureka-discovery deployment/config-server
 rolled_out deployment/user-service deployment/auth-service deployment/api-gateway
 completed onboard
-rolled_out deployment/books-service
+rolled_out deployment/books-service deployment/video-service
 
 if [ "$ENVIRONMENT" != dev ]; then
   echo "Deployed to namespace $NAMESPACE. It is reached through the Ingress in $OVERLAY."
@@ -80,7 +80,7 @@ fi
 
 # The gateway is ready a little before it has fetched the registry and can route. Wait until it
 # reaches every service, as scripts/start.sh does: an empty login is a 400 from auth-service, an
-# empty password-reset request a 400 from user-service, and books-service serves its API description.
+# empty password-reset request a 400 from user-service, and each business service serves its API description.
 echo "==> Waiting until the gateway can route to the services"
 GATEWAY=http://localhost:30211
 attempts=0
@@ -88,10 +88,11 @@ while :; do
   auth=$(curl -s -o /dev/null -m 5 -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "$GATEWAY/api/v1/auth/login" || true)
   users=$(curl -s -o /dev/null -m 5 -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "$GATEWAY/api/v1/users/password-reset-requests" || true)
   books=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "$GATEWAY/docs/books-service/v3/api-docs" || true)
-  [ "$auth" = 400 ] && [ "$users" = 400 ] && [ "$books" = 200 ] && break
+  videos=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "$GATEWAY/docs/video-service/v3/api-docs" || true)
+  [ "$auth" = 400 ] && [ "$users" = 400 ] && [ "$books" = 200 ] && [ "$videos" = 200 ] && break
   attempts=$((attempts + 1))
   if [ "$attempts" -ge 90 ]; then
-    echo "The gateway cannot reach the services (auth-service: $auth, user-service: $users, books-service: $books)." >&2
+    echo "The gateway cannot reach the services (auth-service: $auth, user-service: $users, books-service: $books, video-service: $videos)." >&2
     exit 1
   fi
   sleep 2

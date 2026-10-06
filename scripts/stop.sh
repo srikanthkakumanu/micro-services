@@ -2,7 +2,7 @@
 # Stops the platform gracefully, in the reverse of the start order:
 #
 #   1. api-gateway              no new requests come in
-#   2. books-service            finishes requests in flight, deregisters from Eureka
+#   2. books-service, video-service   finish requests in flight, deregister from Eureka
 #   3. user-service, auth-service   the same
 #   4. Config Server, Eureka
 #   5. Keycloak

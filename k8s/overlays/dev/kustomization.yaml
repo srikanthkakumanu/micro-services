@@ -38,3 +38,5 @@ configMapGenerator:
       - ../../../../service-configs/api-gateway-dev.yml
       - ../../../../service-configs/books-service.yml
       - ../../../../service-configs/books-service-dev.yml
+      - ../../../../service-configs/video-service.yml
+      - ../../../../service-configs/video-service-dev.yml

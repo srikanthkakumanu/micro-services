@@ -9,8 +9,8 @@
 #   5. Eureka, Config Server
 #   6. user-service, auth-service
 #   7. api-gateway, then wait until it can route to both services
-#   8. the onboarding job (registers books-service with the platform through its APIs)
-#   9. books-service, then wait until the gateway can route to it
+#   8. the onboarding job (registers the business services with the platform through its APIs)
+#   9. books-service and video-service, then wait until the gateway can route to them
 #
 # Usage: scripts/start.sh [dev|qa|prod] [--build] [service ...]
 #
@@ -88,9 +88,16 @@ fi
 
 job "Onboarding business services through the platform APIs" onboard
 stage "Business services" $BUSINESS_SERVICES
-if [ -z "$ONLY" ] || in_list books-service $ONLY; then
-  say "Waiting until the gateway can route to books-service"
-  wait_for_business_routing
+started=""
+for service in $BUSINESS_SERVICES; do
+  if [ -z "$ONLY" ] || in_list "$service" $ONLY; then
+    started="$started $service"
+  fi
+done
+if [ -n "$started" ]; then
+  say "Waiting until the gateway can route to:$started"
+  # shellcheck disable=SC2086
+  wait_for_business_routing $started
 fi
 
 say "The platform is up ($ENVIRONMENT)"

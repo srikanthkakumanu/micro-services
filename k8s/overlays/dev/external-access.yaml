@@ -92,6 +92,19 @@ spec:
     - port: 30151
       targetPort: 9151
 ---
+# Direct access for debugging and for the direct-validation end-to-end tests.
+apiVersion: v1
+kind: Service
+metadata:
+  name: video-service-external
+spec:
+  type: LoadBalancer
+  selector:
+    app: video-service
+  ports:
+    - port: 30161
+      targetPort: 9161
+---
 # Debugging.
 apiVersion: v1
 kind: Service

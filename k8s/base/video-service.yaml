@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-service
+  labels:
+    app: video-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: video-service
+  template:
+    metadata:
+      labels:
+        app: video-service
+    spec:
+      # Kubernetes would otherwise inject VAULT_PORT=tcp://... style variables that shadow the
+      # services' own settings.
+      enableServiceLinks: false
+      initContainers:
+        - name: wait-for-config-server
+          image: busybox:1.37
+          command: ["sh", "-c", "until wget -q -O /dev/null http://config-server:9311/actuator/health/readiness; do echo waiting for config-server; sleep 3; done"]
+        - name: wait-for-secrets
+          image: busybox:1.37
+          # Its database credentials are in Vault once Vault is seeded; its client secret once the
+          # onboard job has registered it with the platform. It must not start before either.
+          command: ["sh", "-c", "until wget -q -O /dev/null --header \"X-Vault-Token: $VAULT_TOKEN\" http://vault:8200/v1/secret/data/video-service && wget -q -O /dev/null --header \"X-Vault-Token: $VAULT_TOKEN\" http://vault:8200/v1/secret/data/clients/video-service; do echo waiting for onboarding; sleep 3; done"]
+          env:
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-bootstrap
+                  key: VIDEO_SERVICE_VAULT_TOKEN
+      containers:
+        - name: video-service
+          image: identity-platform-video-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9161
+          # The environment's profile and addresses, supplied by the overlay.
+          envFrom:
+            - configMapRef:
+                name: platform-settings
+          env:
+            - name: SERVER_PORT
+              value: "9161"
+            - name: DATABASE_URL
+              value: jdbc:postgresql://postgres:5432/videodb
+            - name: VAULT_URI
+              value: http://vault:8200
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-bootstrap
+                  key: VIDEO_SERVICE_VAULT_TOKEN
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9161
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 9161
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9161
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: video-service
+spec:
+  type: ClusterIP
+  selector:
+    app: video-service
+  ports:
+    - port: 9161
+      targetPort: 9161

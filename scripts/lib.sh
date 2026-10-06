@@ -10,7 +10,7 @@ PLATFORM_SUPPORT="eureka-discovery config-server"
 PLATFORM_SERVICES="user-service auth-service"
 EDGE="api-gateway"
 # Services that use the platform. They start after the gateway, once they have been onboarded.
-BUSINESS_SERVICES="books-service"
+BUSINESS_SERVICES="books-service video-service"
 ALL_SERVICES="$SECRET_STORE $INFRASTRUCTURE $IDENTITY_PROVIDER $PLATFORM_SUPPORT $PLATFORM_SERVICES $EDGE $BUSINESS_SERVICES"
 
 # How long a container gets to finish what it is doing before it is killed.
@@ -72,22 +72,25 @@ wait_for_routing() {
   done
 }
 
-# Asks the gateway for books-service's API description, which needs no login: 200 means the
+# Asks the gateway for a business service's API description, which needs no login: 200 means the
 # service answered (404 where the description is switched off, as in prod); 503 means the gateway
 # cannot reach it yet.
-books_routing() {
+business_routing() {
   curl -s -o /dev/null -m 5 -w '%{http_code}' \
-    "http://localhost:$(setting GATEWAY_PORT)/docs/books-service/v3/api-docs" || true
+    "http://localhost:$(setting GATEWAY_PORT)/docs/$1/v3/api-docs" || true
 }
 
+# Waits until the gateway routes to the given business services.
 wait_for_business_routing() {
-  attempts=0
-  while :; do
-    books=$(books_routing)
-    case "$books" in 200|404) return 0 ;; esac
-    attempts=$((attempts + 1))
-    [ "$attempts" -ge 60 ] && fail "The gateway cannot reach books-service (answer: $books)."
-    sleep 2
+  for business_service in "$@"; do
+    attempts=0
+    while :; do
+      answer=$(business_routing "$business_service")
+      case "$answer" in 200|404) break ;; esac
+      attempts=$((attempts + 1))
+      [ "$attempts" -ge 60 ] && fail "The gateway cannot reach $business_service (answer: $answer)."
+      sleep 2
+    done
   done
 }
 
@@ -114,6 +117,7 @@ print_urls() {
   user-service         http://localhost:$(setting USER_SERVICE_PORT)
   auth-service         http://localhost:$(setting AUTH_SERVICE_PORT)
   books-service        http://localhost:$(setting BOOKS_SERVICE_PORT)
+  video-service        http://localhost:$(setting VIDEO_SERVICE_PORT)
 
   Administrator: platform-admin, password PLATFORM_ADMIN_PASSWORD in .env
 INFO

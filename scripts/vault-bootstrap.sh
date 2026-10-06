@@ -15,7 +15,8 @@ set -eu
 : "${APP_DB_USERNAME:?}" "${APP_DB_PASSWORD:?}"
 : "${KEYCLOAK_ADMIN_PASSWORD:?}" "${PLATFORM_ADMIN_PASSWORD:?}"
 : "${BOOTSTRAP_VAULT_TOKEN:?}" "${API_GATEWAY_VAULT_TOKEN:?}" "${USER_SERVICE_VAULT_TOKEN:?}"
-: "${AUTH_SERVICE_VAULT_TOKEN:?}" "${BOOKS_SERVICE_VAULT_TOKEN:?}" "${CONFIG_SERVER_VAULT_TOKEN:?}"
+: "${AUTH_SERVICE_VAULT_TOKEN:?}" "${BOOKS_SERVICE_VAULT_TOKEN:?}" "${VIDEO_SERVICE_VAULT_TOKEN:?}"
+: "${CONFIG_SERVER_VAULT_TOKEN:?}"
 
 MOUNT=secret
 
@@ -103,14 +104,16 @@ path "$MOUNT/metadata/clients/*" { capabilities = ["read", "list", "delete"] }
 POLICY
 } | vault policy write auth-service - > /dev/null
 
-# books-service also reads its own client secret, which auth-service writes when the client is
-# registered or its secret rotated.
-{
-  read_only_policy books-service
-  cat <<POLICY
-path "$MOUNT/data/clients/books-service" { capabilities = ["read"] }
+# A business service also reads its own client secret, which auth-service writes when the client
+# is registered or its secret renewed.
+for service in books-service video-service; do
+  {
+    read_only_policy "$service"
+    cat <<POLICY
+path "$MOUNT/data/clients/$service" { capabilities = ["read"] }
 POLICY
-} | vault policy write books-service - > /dev/null
+  } | vault policy write "$service" - > /dev/null
+done
 
 # The one-shot jobs that run after this one (fetching runtime secrets for Postgres and Keycloak,
 # creating databases, the Keycloak bootstrap, onboarding) read what they need, and write nothing.
@@ -129,6 +132,7 @@ service_token api-gateway "$API_GATEWAY_VAULT_TOKEN"
 service_token user-service "$USER_SERVICE_VAULT_TOKEN"
 service_token auth-service "$AUTH_SERVICE_VAULT_TOKEN"
 service_token books-service "$BOOKS_SERVICE_VAULT_TOKEN"
+service_token video-service "$VIDEO_SERVICE_VAULT_TOKEN"
 service_token cloud-config-service "$CONFIG_SERVER_VAULT_TOKEN"
 
 echo "Vault seeded."
