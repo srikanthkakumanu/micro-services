@@ -48,7 +48,8 @@ k8s-down: ## Remove the dev Kubernetes deployment
 
 test-e2e-k8s: ## Run the end-to-end suite against the Kubernetes deployment
 	E2E_GATEWAY_URL=http://localhost:30211 E2E_USER_SERVICE_URL=http://localhost:30121 \
-	E2E_AUTH_SERVICE_URL=http://localhost:30141 E2E_MAILPIT_URL=http://localhost:30025 \
+	E2E_AUTH_SERVICE_URL=http://localhost:30141 E2E_BOOKS_SERVICE_URL=http://localhost:30151 \
+	E2E_MAILPIT_URL=http://localhost:30025 \
 	E2E_VAULT_URL=http://localhost:30200 E2E_CONFIG_SERVER_URL=http://localhost:30311 \
 	E2E_ISSUER=http://localhost:30080/realms/platform E2E_PROFILE=dev \
 	E2E_INTERNAL_EXEC="kubectl -n identity-dev exec deploy/api-gateway --" \

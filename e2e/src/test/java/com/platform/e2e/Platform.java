@@ -40,6 +40,7 @@ final class Platform {
 	static final String GATEWAY = setting("E2E_GATEWAY_URL", "http://localhost:" + ENV.getOrDefault("GATEWAY_PORT", "9211"));
 	static final String USER_SERVICE = setting("E2E_USER_SERVICE_URL", "http://localhost:" + ENV.getOrDefault("USER_SERVICE_PORT", "9121"));
 	static final String AUTH_SERVICE = setting("E2E_AUTH_SERVICE_URL", "http://localhost:" + ENV.getOrDefault("AUTH_SERVICE_PORT", "9141"));
+	static final String BOOKS_SERVICE = setting("E2E_BOOKS_SERVICE_URL", "http://localhost:" + ENV.getOrDefault("BOOKS_SERVICE_PORT", "9151"));
 	static final String MAILPIT = setting("E2E_MAILPIT_URL", "http://localhost:" + ENV.getOrDefault("MAILPIT_UI_PORT", "8025"));
 	static final String VAULT = setting("E2E_VAULT_URL", "http://localhost:" + ENV.getOrDefault("VAULT_PORT", "8200"));
 	static final String ISSUER = setting("E2E_ISSUER", ENV.getOrDefault("KEYCLOAK_PUBLIC_URL", "http://localhost:8080") + "/realms/platform");

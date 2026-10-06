@@ -18,13 +18,57 @@ spec:
       # services' own settings.
       enableServiceLinks: false
       initContainers:
-        - name: wait-for-postgres
-          image: busybox:1.37
-          command: ["sh", "-c", "until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done"]
+        # Reads this workload's database credentials from Vault into memory. Runs as root so it
+        # can hand each file to the user the main container runs as.
+        - name: fetch-secrets
+          image: identity-platform-bootstrap:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 0
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              until vault kv get -mount=secret postgres > /dev/null 2>&1; do echo waiting for Vault to be seeded; sleep 2; done;
+              exec /bootstrap/fetch-runtime-secrets.sh
+          env:
+            - name: VAULT_ADDR
+              value: http://vault:8200
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-bootstrap
+                  key: BOOTSTRAP_VAULT_TOKEN
+            - name: SECRETS_DIR
+              value: /run/platform-secrets
+          volumeMounts:
+            - name: platform-secrets
+              mountPath: /run/platform-secrets
+        # Keycloak's database is created by the db-init job; wait until it accepts the credentials.
+        - name: wait-for-database
+          image: identity-platform-bootstrap:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              set -a; . /run/platform-secrets/keycloak-db.env; set +a;
+              until PGPASSWORD="$KC_DB_PASSWORD" psql -q -h postgres -U "$KC_DB_USERNAME" -d "$KC_DB_URL_DATABASE" -c 'select 1' > /dev/null 2>&1;
+              do echo waiting for the keycloak database; sleep 2; done
+          volumeMounts:
+            - name: platform-secrets
+              mountPath: /run/platform-secrets
+              readOnly: true
       containers:
         - name: keycloak
           image: quay.io/keycloak/keycloak:26.8.0
-          args: ["start-dev", "--import-realm"]
+          # The database name, user and password come from Vault (see fetch-secrets above).
+          command:
+            - /bin/sh
+            - -c
+            - set -a && . /run/platform-secrets/keycloak-db.env && set +a && exec /opt/keycloak/bin/kc.sh start-dev --import-realm
           env:
             - name: KC_BOOTSTRAP_ADMIN_USERNAME
               value: admin
@@ -35,15 +79,8 @@ spec:
                   key: KEYCLOAK_ADMIN_PASSWORD
             - name: KC_DB
               value: postgres
-            - name: KC_DB_URL
-              value: jdbc:postgresql://postgres:5432/keycloak
-            - name: KC_DB_USERNAME
-              value: keycloak
-            - name: KC_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: platform-bootstrap
-                  key: KEYCLOAK_DB_PASSWORD
+            - name: KC_DB_URL_HOST
+              value: postgres
             # Fixed public URL (set per environment by the overlay): `iss` is the same for
             # tokens requested from the host and from inside the cluster.
             - name: KC_HOSTNAME
@@ -63,6 +100,9 @@ spec:
           volumeMounts:
             - name: realm
               mountPath: /opt/keycloak/data/import
+              readOnly: true
+            - name: platform-secrets
+              mountPath: /run/platform-secrets
               readOnly: true
           startupProbe:
             httpGet:
@@ -91,6 +131,9 @@ spec:
         - name: realm
           configMap:
             name: keycloak-realm
+        - name: platform-secrets
+          emptyDir:
+            medium: Memory
 ---
 apiVersion: v1
 kind: Service

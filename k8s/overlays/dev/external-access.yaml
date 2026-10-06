@@ -79,6 +79,19 @@ spec:
     - port: 30141
       targetPort: 9141
 ---
+# Direct access for debugging and for the direct-validation end-to-end tests.
+apiVersion: v1
+kind: Service
+metadata:
+  name: books-service-external
+spec:
+  type: LoadBalancer
+  selector:
+    app: books-service
+  ports:
+    - port: 30151
+      targetPort: 9151
+---
 # Debugging.
 apiVersion: v1
 kind: Service

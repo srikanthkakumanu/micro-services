@@ -18,31 +18,57 @@ spec:
       # Kubernetes would otherwise inject VAULT_PORT=tcp://... style variables that shadow the
       # services' own settings.
       enableServiceLinks: false
+      initContainers:
+        # Reads this workload's database credentials from Vault into memory. Runs as root so it
+        # can hand each file to the user the main container runs as.
+        - name: fetch-secrets
+          image: identity-platform-bootstrap:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 0
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              until vault kv get -mount=secret postgres > /dev/null 2>&1; do echo waiting for Vault to be seeded; sleep 2; done;
+              exec /bootstrap/fetch-runtime-secrets.sh
+          env:
+            - name: VAULT_ADDR
+              value: http://vault:8200
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-bootstrap
+                  key: BOOTSTRAP_VAULT_TOKEN
+            - name: SECRETS_DIR
+              value: /run/platform-secrets
+          volumeMounts:
+            - name: platform-secrets
+              mountPath: /run/platform-secrets
       containers:
         - name: postgres
           image: postgres:18
           ports:
             - containerPort: 5432
           env:
-            - name: POSTGRES_USER
-              value: postgres
-          # Passwords for the superuser and the three database owners.
-          envFrom:
-            - secretRef:
-                name: platform-bootstrap
+            # The superuser's name and password come from Vault (see fetch-secrets above).
+            - name: POSTGRES_USER_FILE
+              value: /run/platform-secrets/postgres-username
+            - name: POSTGRES_PASSWORD_FILE
+              value: /run/platform-secrets/postgres-password
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql
-            - name: init
-              mountPath: /docker-entrypoint-initdb.d
+            - name: platform-secrets
+              mountPath: /run/platform-secrets
               readOnly: true
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "postgres", "-d", "auth_db"]
+              command: ["pg_isready", "-q", "-d", "postgres"]
             periodSeconds: 5
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "postgres"]
+              command: ["pg_isready", "-q", "-d", "postgres"]
             periodSeconds: 20
           resources:
             requests:
@@ -52,10 +78,9 @@ spec:
               cpu: "1"
               memory: 512Mi
       volumes:
-        - name: init
-          configMap:
-            name: postgres-init
-            defaultMode: 0555
+        - name: platform-secrets
+          emptyDir:
+            medium: Memory
   volumeClaimTemplates:
     - metadata:
         name: data

@@ -4,9 +4,10 @@
 # defines its permissions, creates the roles and attaches the permissions to them, and gives the
 # service account what it needs to call other services.
 #
-# Safe to run again: whatever already exists is left as it is. The client secret is rotated on
-# every run, because the dev Vault runs in memory and has lost the previous one after a restart;
-# the service reads the new one from Vault when it starts.
+# Safe to run again: whatever already exists is left as it is. The dev Vault runs in memory and
+# has lost the client secret after a restart; when it is missing a new one is issued, which the
+# service reads from Vault when it starts. A secret Vault still holds is kept, so a service that
+# is running keeps working.
 #
 # Required: GATEWAY_URL, VAULT_ADDR, VAULT_TOKEN (read-only; for the administrator's password).
 # Optional: ONBOARDING_DIR (default /bootstrap/onboarding).
@@ -78,6 +79,11 @@ for file in "$ONBOARDING_DIR"/*.json; do
     api POST "/api/v1/clients/$client/roles" "$roles"
   fi
 
-  api POST "/api/v1/clients/$client/rotate-secret"
-  echo "Onboarded $client: client, $(jq '.permissions | length' "$file") permissions, $(jq '.roles | length' "$file") roles; secret at $(jq -r .secretLocation /tmp/response)."
+  if vault kv get -mount="$MOUNT" -field=client-secret "clients/$client" > /dev/null 2>&1; then
+    secret_note="its client secret is still in Vault"
+  else
+    api POST "/api/v1/clients/$client/rotate-secret"
+    secret_note="a new client secret was written to $(jq -r .secretLocation /tmp/response)"
+  fi
+  echo "Onboarded $client: client, $(jq '.permissions | length' "$file") permissions, $(jq '.roles | length' "$file") roles; $secret_note."
 done

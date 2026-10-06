@@ -1,0 +1,186 @@
+# One-shot: seeds Vault from the platform-bootstrap Secret. The only workload that reads credentials
+# from that Secret; everything else gets them from Vault.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-seed
+spec:
+  backoffLimit: 20
+  template:
+    metadata:
+      labels:
+        app: vault-seed
+    spec:
+      # Kubernetes would otherwise inject VAULT_PORT=tcp://... style variables that shadow the
+      # services' own settings.
+      enableServiceLinks: false
+      restartPolicy: OnFailure
+      containers:
+        - name: vault-seed
+          image: identity-platform-bootstrap:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              until wget -q -O /dev/null http://vault:8200/v1/sys/health; do echo waiting for vault; sleep 2; done;
+              exec /bootstrap/vault-bootstrap.sh
+          env:
+            - name: VAULT_ADDR
+              value: http://vault:8200
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-bootstrap
+                  key: VAULT_DEV_ROOT_TOKEN
+          envFrom:
+            - secretRef:
+                name: platform-bootstrap
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+
+---
+# One-shot: creates the databases and their users with the credentials held in Vault.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-init
+spec:
+  backoffLimit: 20
+  template:
+    metadata:
+      labels:
+        app: db-init
+    spec:
+      # Kubernetes would otherwise inject VAULT_PORT=tcp://... style variables that shadow the
+      # services' own settings.
+      enableServiceLinks: false
+      restartPolicy: OnFailure
+      containers:
+        - name: db-init
+          image: identity-platform-bootstrap:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              until vault kv get -mount=secret postgres > /dev/null 2>&1; do echo waiting for Vault to be seeded; sleep 2; done;
+              until pg_isready -q -h postgres; do echo waiting for postgres; sleep 2; done;
+              exec /bootstrap/db-init.sh
+          env:
+            - name: VAULT_ADDR
+              value: http://vault:8200
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-bootstrap
+                  key: BOOTSTRAP_VAULT_TOKEN
+            - name: PGHOST
+              value: postgres
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+
+---
+# One-shot: applies the client secrets and the administrator's password held in Vault to the
+# imported realm.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-bootstrap
+spec:
+  backoffLimit: 20
+  template:
+    metadata:
+      labels:
+        app: keycloak-bootstrap
+    spec:
+      # Kubernetes would otherwise inject VAULT_PORT=tcp://... style variables that shadow the
+      # services' own settings.
+      enableServiceLinks: false
+      restartPolicy: OnFailure
+      containers:
+        - name: keycloak-bootstrap
+          image: identity-platform-bootstrap:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              until vault kv get -mount=secret postgres > /dev/null 2>&1; do echo waiting for Vault to be seeded; sleep 2; done;
+              until wget -q -O /dev/null http://keycloak:8080/realms/platform; do echo waiting for keycloak; sleep 3; done;
+              exec /bootstrap/keycloak-bootstrap.sh
+          env:
+            - name: VAULT_ADDR
+              value: http://vault:8200
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-bootstrap
+                  key: BOOTSTRAP_VAULT_TOKEN
+            - name: KEYCLOAK_URL
+              value: http://keycloak:8080
+            - name: KEYCLOAK_REALM
+              value: platform
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+
+---
+# One-shot: registers the business services with the platform through its APIs (client, permissions,
+# roles) and makes sure their client secrets are in Vault.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: onboard
+spec:
+  backoffLimit: 20
+  template:
+    metadata:
+      labels:
+        app: onboard
+    spec:
+      # Kubernetes would otherwise inject VAULT_PORT=tcp://... style variables that shadow the
+      # services' own settings.
+      enableServiceLinks: false
+      restartPolicy: OnFailure
+      containers:
+        - name: onboard
+          image: identity-platform-bootstrap:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              until wget -q -O /dev/null http://api-gateway:9211/actuator/health/readiness; do echo waiting for the gateway; sleep 3; done;
+              exec /bootstrap/onboard-services.sh
+          env:
+            - name: VAULT_ADDR
+              value: http://vault:8200
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-bootstrap
+                  key: BOOTSTRAP_VAULT_TOKEN
+            - name: GATEWAY_URL
+              value: http://api-gateway:9211
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

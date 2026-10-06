@@ -25,9 +25,6 @@ configMapGenerator:
   - name: keycloak-realm
     files:
       - ../../../keycloak/platform-realm.json
-  - name: postgres-init
-    files:
-      - ../../../postgres/init/01-create-databases.sh
   # In dev the config server reads these files from a mounted directory.
   - name: service-configs
     files:
@@ -39,3 +36,5 @@ configMapGenerator:
       - ../../../../service-configs/auth-service-dev.yml
       - ../../../../service-configs/api-gateway.yml
       - ../../../../service-configs/api-gateway-dev.yml
+      - ../../../../service-configs/books-service.yml
+      - ../../../../service-configs/books-service-dev.yml

@@ -36,6 +36,3 @@ configMapGenerator:
   - name: keycloak-realm
     files:
       - ../../../keycloak/platform-realm.json
-  - name: postgres-init
-    files:
-      - ../../../postgres/init/01-create-databases.sh

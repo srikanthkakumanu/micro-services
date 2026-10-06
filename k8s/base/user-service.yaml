@@ -23,8 +23,8 @@ spec:
           command: ["sh", "-c", "until wget -q -O /dev/null http://config-server:9311/actuator/health/readiness; do echo waiting for config-server; sleep 3; done"]
         - name: wait-for-secrets
           image: busybox:1.37
-          # The service's Vault token only works once the bootstrap job has seeded Vault.
-          command: ["sh", "-c", "until wget -q -O /dev/null --header \"X-Vault-Token: $VAULT_TOKEN\" http://vault:8200/v1/secret/data/user-service; do echo waiting for bootstrap; sleep 3; done"]
+          # The service's Vault token only works once the vault-seed job has seeded Vault.
+          command: ["sh", "-c", "until wget -q -O /dev/null --header \"X-Vault-Token: $VAULT_TOKEN\" http://vault:8200/v1/secret/data/user-service; do echo waiting for Vault to be seeded; sleep 3; done"]
           env:
             - name: VAULT_TOKEN
               valueFrom:
