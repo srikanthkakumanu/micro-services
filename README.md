@@ -1,8 +1,8 @@
 # micro-services
 
-The platform root of the Keycloak-backed identity platform. This repository does not contain a service of its own. It holds what the services share and everything needed to run them together: the start and stop scripts, the Docker Compose stack, the Keycloak realm, the secret bootstrap, the shared build files, the end-to-end tests, the Kubernetes manifests and the documentation.
+The platform root of the Keycloak-backed identity platform. This repository does not contain a service of its own. It holds what the services share and everything needed to run them together: the start and stop scripts, the Docker Compose stack, the Keycloak realm, the secret bootstrap, the onboarding of business services, the shared build files, the end-to-end tests, the Kubernetes manifests and the documentation.
 
-`user-service` and `auth-service` are the front door for every routine identity and access operation. Keycloak sits behind them, is configured once from code, and is never called directly by people or by other services.
+`user-service` and `auth-service` are the front door for every routine identity and access operation. Keycloak sits behind them, is configured once from code, and is never called directly by people or by other services. `books-service` is the first business service on the platform: its users, logins and roles all come from those two services.
 
 This is a development setup. `qa` and `prod` exist as configuration profiles, not as hardened environments.
 
@@ -17,8 +17,10 @@ This is a development setup. `qa` and `prod` exist as configuration profiles, no
 - [Make targets](#make-targets)
 - [Addresses](#addresses)
 - [First calls](#first-calls)
+- [Dev users and passwords](#dev-users-and-passwords)
 - [Environments](#environments)
 - [Secrets](#secrets)
+- [Business services](#business-services)
 - [Tests](#tests)
 - [Kubernetes](#kubernetes)
 - [Troubleshooting](#troubleshooting)
@@ -27,21 +29,23 @@ This is a development setup. `qa` and `prod` exist as configuration profiles, no
 ## The platform at a glance
 
 ```
-                         client
-                           |
-                    +-------------+        validates the token, routes,
-                    | api-gateway |        adds a correlation ID
-                    +-------------+
-                     /           \
-          +--------------+   +--------------+     each validates the
-          | user-service |   | auth-service |     token again
-          +--------------+   +--------------+
-            |       \          /    |     \
-        user_db      \        /   auth_db   Vault (client secrets)
-                    +----------+
-                    | Keycloak |   the only issuer of tokens
-                    +----------+
+                              client
+                                |
+                         +-------------+        validates the token, routes,
+                         | api-gateway |        adds a correlation ID
+                         +-------------+
+                        /       |       \
+        +--------------+ +--------------+ +---------------+    each validates the
+        | user-service | | auth-service | | books-service |    token again
+        +--------------+ +--------------+ +---------------+
+           |      \        /     |    ^        |    |
+        user_db    \      /   auth_db  \-------+  booksdb
+                 +----------+           asks about users,
+                 | Keycloak |           gets its service token
+                 +----------+
+              the only issuer of tokens
 
+   Vault              every credential: database users and passwords, client secrets
    eureka-discovery   registry the gateway routes through
    cloud-config       serves service-configs (+ Vault secrets) to the services
    Mailpit            catches the emails Keycloak sends
@@ -52,11 +56,12 @@ This is a development setup. `qa` and `prod` exist as configuration profiles, no
 | `api-gateway` | Single entry point. Checks the access token, routes by path, relays the token. |
 | `user-service` | Identity: who someone is. Users, profiles, account actions, credential administration. |
 | `auth-service` | Access: how people and services authenticate, and what they may do. Login, sessions, roles, groups, permissions, decisions, service clients, audit, token settings and keys. |
+| `books-service` | The book catalog. Requires a platform login and a catalog role; keeps no users or roles of its own. |
 | `eureka-discovery` | Service registry. |
 | `cloud-config-service` | Config Server over `service-configs` and Vault. |
 | Keycloak | Identity provider, behind the two services. |
-| Postgres | One instance, three databases with their own users: `keycloak`, `user_db`, `auth_db`. |
-| Vault | Secrets (dev mode, in memory). |
+| Postgres | One instance, a database per owner: `keycloak`, `user_db`, `auth_db`, `booksdb`, and `videodb` (prepared for video-service). |
+| Vault | Every credential, including all database users and passwords (dev mode, in memory). |
 | Mailpit | Local mail inbox. |
 
 ## Repositories
@@ -71,7 +76,8 @@ practice/
 ├── cloud-config-service/
 ├── user-service/
 ├── auth-service/
-└── api-gateway/
+├── api-gateway/
+└── books-service/
 ```
 
 ## What is in this repository
@@ -80,16 +86,19 @@ practice/
 | --- | --- |
 | `scripts/start.sh`, `stop.sh`, `restart.sh`, `status.sh` | Start and stop the platform in order ([details](#start-and-stop-scripts)) |
 | `scripts/run-from-source.sh` | Run one service from its source tree against the running stack |
-| `scripts/init-env.sh` | Generates `.env` with random secrets for an environment |
-| `scripts/vault-bootstrap.sh`, `keycloak-bootstrap.sh` | Run inside the `bootstrap` container: seed Vault, apply secrets to Keycloak |
+| `scripts/init-env.sh` | Generates `.env` for an environment, and adds what is new to an existing one |
+| `scripts/vault-bootstrap.sh` | Job `vault-seed`: puts every credential into Vault. The only reader of `.env` secrets. |
+| `scripts/fetch-runtime-secrets.sh` | Job `secrets-fetch`: hands Postgres and Keycloak their database credentials from Vault |
+| `scripts/db-init.sh` | Job `db-init`: creates the databases and users with credentials read from Vault |
+| `scripts/keycloak-bootstrap.sh` | Job `keycloak-bootstrap`: applies client secrets and the administrator's password to the realm |
+| `scripts/onboard-services.sh`, `onboarding/*.json` | Job `onboard`: registers business services through the platform APIs |
 | `scripts/k8s-up.sh` | Build, deploy and wait on Kubernetes |
 | `scripts/lib.sh` | Shared by the scripts above; holds the start order |
 | `Makefile` | Short names for the scripts |
 | `docker-compose.yml` | The stack |
-| `.env.dev.example`, `.env.qa.example`, `.env.prod.example` | Non-secret settings per environment |
+| `.env.dev.example`, `.env.qa.example`, `.env.prod.example` | Settings per environment. The dev one also holds the fixed dev-only passwords. |
 | `keycloak/platform-realm.json` | Bootstrap realm: clients, seed roles and permissions, token mappers. No secrets. |
-| `postgres/init/` | Creates the three databases and their users on first start |
-| `bootstrap/Dockerfile` | Image of the one-shot bootstrap job |
+| `bootstrap/Dockerfile` | Image of the one-shot jobs |
 | `gradle/libs.versions.toml` | The one version catalog every service imports |
 | `platform-security-starter/` | Shared library: JWT validation, claim value objects, authority mapping |
 | `e2e/` | End-to-end test suite (REST Assured) |
@@ -102,8 +111,9 @@ practice/
 - JDK 27 (only for building and testing from source; the images build with their own JDK)
 - `make`, `curl`
 - For Kubernetes: `kubectl` and Docker Desktop's cluster
+- About 6 GB of memory for Docker. With 8 GB, run either the Compose stack or the local cluster, not both.
 
-The stack uses these host ports: 5432, 8025, 8080, 8200, 9111, 9121, 9141, 9211, 9311. Change them in `.env.<environment>.example` if they are taken.
+The stack uses these host ports: 5432, 8025, 8080, 8200, 9111, 9121, 9141, 9151, 9211, 9311. Change them in `.env.<environment>.example` if they are taken.
 
 ## Quick start
 
@@ -114,7 +124,7 @@ make test-e2e    # optional: the end-to-end suite
 make stop        # graceful stop; data is kept
 ```
 
-The first `make up` generates `.env` with random secrets, builds five images and imports the realm. It takes a few minutes; later starts take about a minute.
+The first `make up` generates `.env`, builds seven images and imports the realm. It takes a few minutes; later starts take about a minute.
 
 ## Start and stop scripts
 
@@ -133,15 +143,17 @@ It starts one stage at a time and waits until that stage reports healthy before 
 
 | Stage | What starts | Why here |
 | --- | --- | --- |
-| 1 | Postgres, Vault, Mailpit | Nothing depends on anything else yet |
-| 2 | Keycloak | Needs its database; imports the realm on first start |
-| 3 | bootstrap (one-shot) | Seeds Vault and applies client secrets to Keycloak; needs both |
-| 4 | Eureka, Config Server | Services need the registry and their configuration |
-| 5 | user-service, auth-service | Need configuration, secrets, their database and Keycloak |
-| 6 | api-gateway | Routes to the services |
-| 7 | (wait) | Until the gateway has fetched the registry and can reach both services |
+| 1 | Vault, then job `vault-seed` | Everything else gets its credentials from Vault, the database included |
+| 2 | Job `secrets-fetch`, then Postgres and Mailpit | Postgres takes its superuser name and password from Vault |
+| 3 | Job `db-init` | Creates every database and user with credentials read from Vault |
+| 4 | Keycloak, then job `keycloak-bootstrap` | Keycloak takes its database credentials from Vault and imports the realm on first start; the job applies client secrets and the administrator's password |
+| 5 | Eureka, Config Server | Services need the registry and their configuration |
+| 6 | user-service, auth-service | Need configuration, secrets, their database and Keycloak |
+| 7 | api-gateway, then wait | Until the gateway has fetched the registry and can reach both services |
+| 8 | Job `onboard` | Registers books-service with the platform through its APIs: client, permissions, catalog roles |
+| 9 | books-service, then wait | It must exist on the platform before it starts; then until the gateway can reach it |
 
-It is safe to run again: running containers are left alone, and the bootstrap keeps secrets that already exist. If a stage does not become healthy the script stops there and names the service to look at.
+It is safe to run again: running containers are left alone, the jobs keep what already exists, and `db-init` creates databases that were added since (no reset needed). If a stage does not become healthy the script stops there and names the service to look at.
 
 ### `stop.sh` — stop gracefully
 
@@ -157,14 +169,16 @@ It goes through the start order backwards, so nothing loses a dependency while i
 | Step | What stops | Effect |
 | --- | --- | --- |
 | 1 | api-gateway | No new requests come in |
-| 2 | user-service, auth-service | Finish requests in flight, deregister from Eureka, close database connections |
-| 3 | Config Server, Eureka | |
-| 4 | Keycloak | |
-| 5 | Mailpit, Vault, Postgres | The database goes last, after everything that writes to it |
+| 2 | books-service | Finishes requests in flight, deregisters from Eureka, closes database connections |
+| 3 | user-service, auth-service | The same |
+| 4 | Config Server, Eureka | |
+| 5 | Keycloak | |
+| 6 | Mailpit, Postgres | The database goes after everything that writes to it |
+| 7 | Vault | Last, as it was first |
 
 Each container gets `STOP_TIMEOUT` seconds (default 40) to shut down before it is killed. The services use Spring's graceful shutdown with a 30-second limit for requests in flight.
 
-Vault runs in memory in this setup, so it is empty after a stop. `start.sh` seeds it again every time; the services then pick up the new client secrets because they start after the bootstrap.
+Vault runs in memory in this setup, so it is empty after a stop. `start.sh` seeds it again every time; the services then pick up the new client secrets because they start after the jobs.
 
 ### `restart.sh` — graceful restart
 
@@ -186,7 +200,7 @@ Lists every service with its health, says whether the gateway can route to both 
 scripts/run-from-source.sh auth-service
 ```
 
-Stops that service's container and runs `./gradlew bootRun` in its repository with the settings and Vault token of the running stack. Stop it with Ctrl-C, then `scripts/start.sh auth-service` puts the container back. Works for `user-service`, `auth-service` and `api-gateway`.
+Stops that service's container and runs `./gradlew bootRun` in its repository with the settings and Vault token of the running stack. Stop it with Ctrl-C, then `scripts/start.sh auth-service` puts the container back. Works for `user-service`, `auth-service`, `books-service` and `api-gateway`.
 
 ## Make targets
 
@@ -208,13 +222,13 @@ Stops that service's container and runs `./gradlew bootRun` in its repository wi
 | What | URL |
 | --- | --- |
 | Gateway (use this) | http://localhost:9211 |
-| Swagger UI for both APIs | http://localhost:9211/swagger-ui.html |
+| Swagger UI for all three APIs | http://localhost:9211/swagger-ui.html |
 | Mailpit | http://localhost:8025 |
 | Keycloak console (debugging only) | http://localhost:8080 |
 | Vault | http://localhost:8200 |
 | Eureka | http://localhost:9111 |
 | Config Server | http://localhost:9311 |
-| user-service, auth-service directly | http://localhost:9121, http://localhost:9141 |
+| user-service, auth-service, books-service directly | http://localhost:9121, http://localhost:9141, http://localhost:9151 |
 | Postgres | localhost:5432 |
 
 ## First calls
@@ -229,6 +243,7 @@ TOKEN=$(curl -s -X POST localhost:9211/api/v1/auth/login -H 'Content-Type: appli
 curl -s localhost:9211/api/v1/auth/me -H "Authorization: Bearer $TOKEN"        # who am I
 curl -s "localhost:9211/api/v1/users?size=5" -H "Authorization: Bearer $TOKEN"  # list users
 curl -s localhost:9211/api/v1/roles -H "Authorization: Bearer $TOKEN"           # list roles
+curl -s "localhost:9211/api/v1/books?size=5" -H "Authorization: Bearer $TOKEN"  # the book catalog
 
 # Register a new user; the verification email lands in Mailpit.
 curl -s -X POST localhost:9211/api/v1/users/register -H 'Content-Type: application/json' \
@@ -249,16 +264,73 @@ make up ENV=qa
 - Locally, `qa` and `prod` run on the same infrastructure as `dev` (dev-mode Vault, Mailpit, one Keycloak). They select configuration; they do not harden anything.
 - What differs: in `qa` and `prod` every address must be supplied (no defaults), the signing-key cache is 5 minutes instead of 15 seconds, and in `prod` the API docs are off.
 
+## Dev users and passwords
+
+For the development environment (`ENV=dev`) only. The fixed ones were chosen by the owner so they are easy to remember; the rest are generated per machine into the git-ignored `.env`, so only the variable that holds them can be named here. All of them are also in Vault, which is where everything reads them from.
+
+| Account | User | Password | In Vault at |
+| --- | --- | --- | --- |
+| Vault dev root token | | `srikanth` | |
+| `booksdb` schema admin | `booksadmin` | `booksadmin` | `secret/books-service` |
+| `booksdb` and `videodb` runtime | `theuser` | `theuser` | `secret/books-service`, `secret/video-service` |
+| `videodb` schema admin | `videoadmin` | `videoadmin` | `secret/video-service` |
+| Postgres superuser | `postgres` | `.env`: `POSTGRES_PASSWORD` | `secret/postgres` |
+| `keycloak` database | `keycloak` | `.env`: `KEYCLOAK_DB_PASSWORD` | `secret/keycloak-db` |
+| `user_db` | `user_service` | `.env`: `USER_DB_PASSWORD` | `secret/user-service` |
+| `auth_db` | `auth_service` | `.env`: `AUTH_DB_PASSWORD` | `secret/auth-service` |
+| Platform administrator (sign in to the APIs) | `platform-admin` | `.env`: `PLATFORM_ADMIN_PASSWORD` | `secret/keycloak` |
+| Keycloak console (debugging only) | `admin` | `.env`: `KEYCLOAK_ADMIN_PASSWORD` | `secret/keycloak` |
+| Vault token of each service | | `.env`: `<SERVICE>_VAULT_TOKEN` | |
+
+```bash
+grep PLATFORM_ADMIN_PASSWORD .env                                   # a generated password
+docker compose exec -e VAULT_TOKEN=srikanth vault vault kv get secret/books-service
+docker compose exec -e PGPASSWORD=theuser postgres psql -h localhost -U theuser -d booksdb -c '\dt'
+```
+
+Application users (people who sign in) are not in this table: they are created through `user-service`, by registering or by an administrator. In `qa` and `prod` nothing is fixed: the `booksdb` and `videodb` passwords are generated too.
+
 ## Secrets
 
-Nothing secret is in Git.
+**Every database user name and password is stored in Vault and read from there**, by the services, by Keycloak and by Postgres itself ([ADR 0015](docs/adr/0015-books-service-integration.md)). The same goes for client secrets.
 
-1. `scripts/init-env.sh` writes `.env` (git-ignored) with random database passwords, the Keycloak console password, the `platform-admin` password and one Vault token per service.
-2. Postgres creates the three databases with those passwords on first start.
-3. The `bootstrap` job writes them to Vault, generates the three platform client secrets, applies those to Keycloak, and creates a read-only Vault policy and token per service.
-4. Services read their secrets from Vault with their own token: `secret/user-service`, `secret/auth-service`, `secret/api-gateway`. `auth-service` writes the secrets of registered service clients to `secret/clients/<id>`.
+1. `scripts/init-env.sh` writes `.env` (git-ignored): the settings of the environment plus generated passwords and one Vault token per reader.
+2. Vault starts first. The `vault-seed` job copies the credentials from `.env` into Vault, generates the platform client secrets, and creates a read-only policy and token per reader. **It is the only thing that reads credentials from `.env`.**
+3. The `secrets-fetch` job reads the Postgres superuser's and Keycloak's database credentials from Vault and hands them to those two containers as files. They cannot talk to Vault themselves.
+4. The `db-init` job reads every database credential from Vault and creates the databases and users. Run again, it sets each password to the one Vault holds.
+5. Services read their secrets from Vault with their own token: `secret/user-service`, `secret/auth-service`, `secret/books-service`, `secret/api-gateway`. `auth-service` writes the secrets of registered service clients to `secret/clients/<id>`.
 
-The one fixed value is the dev Vault root token in the `.env.<environment>.example` files, labelled as such and used only by the bootstrap. See [ADR 0008](docs/adr/0008-secrets-bootstrap.md).
+| Vault path | Holds |
+| --- | --- |
+| `secret/postgres` | Postgres superuser name and password |
+| `secret/keycloak-db` | Keycloak's database, user and password |
+| `secret/user-service`, `secret/auth-service` | Datasource user and password, Keycloak client secret |
+| `secret/books-service`, `secret/video-service` | Runtime account (`spring.datasource.*`) and schema admin (`spring.flyway.*`) |
+| `secret/api-gateway` | Keycloak client secret |
+| `secret/keycloak` | Console admin and platform administrator passwords |
+| `secret/clients/<id>` | Client secret of each registered service |
+
+Two honest limits of the dev setup:
+
+- The dev Vault runs in memory and starts empty, so the values have to exist outside it once to seed it. That is `.env`. A persistent or external Vault removes this.
+- The fixed dev passwords above and the dev Vault root token are committed in `.env.dev.example`, marked dev-only. That is a deliberate exception to "no secrets in Git", for the dev environment only. `qa` and `prod` templates carry no password.
+
+See [ADR 0008](docs/adr/0008-secrets-bootstrap.md) and [ADR 0015](docs/adr/0015-books-service-integration.md).
+
+## Business services
+
+A business service joins the platform through its APIs, never by editing the realm file. `books-service` is the first:
+
+- `onboarding/books-service.json` declares its client, its permissions (`books:read`, `books:write`, `books:manage`, `authors:manage`) and the roles that grant them (`CATALOG_READER`, `CATALOG_EDITOR`, `CATALOG_MANAGER`, and `PLATFORM_ADMIN`).
+- The `onboard` job applies it on every start by calling `/api/v1/clients`, `/api/v1/permissions` and `/api/v1/roles` as the platform administrator. What exists is kept.
+- A user gets access when a role is assigned to them in auth-service; a user with only `USER` gets `403` from the catalog.
+
+```bash
+curl -s -X POST localhost:9211/api/v1/users/$USER_ID/roles -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"roles":[{"name":"CATALOG_READER"}]}'
+```
+
+To add another service, see [Integrating a new service](docs/integrating-a-new-service.md).
 
 ## Tests
 
@@ -266,17 +338,17 @@ The one fixed value is the dev Vault root token in the `.env.<environment>.examp
 | --- | --- | --- |
 | Security starter (35 tests) | `./gradlew build` here | JDK 27 |
 | Each service | `./gradlew build` in its repository | JDK 27, Docker (Testcontainers) |
-| End to end (21 tests) | `make test-e2e` | The stack running with `dev` |
+| End to end (25 tests) | `make test-e2e` | The stack running with `dev` |
 | End to end on Kubernetes | `make test-e2e-k8s` | `make k8s-up` |
 
-The end-to-end suite creates all its data through the APIs. It covers self-service, user and access administration, decisions, service onboarding and secret rotation, guards, audit, JWT validation at the gateway and at each service, the token contract, key rotation, lifetimes, token exchange and issuer consistency.
+The end-to-end suite creates all its data through the APIs. It covers self-service, user and access administration, decisions, service onboarding and secret rotation, guards, audit, JWT validation at the gateway and at each service, the token contract, key rotation, lifetimes, token exchange and issuer consistency, and the book catalog: login and a catalog role are required, editors keep only their own books, managers hand books to users that user-service knows.
 
 ## Kubernetes
 
 Targets Docker Desktop's cluster.
 
 ```bash
-make k8s-up         # build, deploy the dev overlay, wait for rollout, run the bootstrap job
+make k8s-up         # build, deploy the dev overlay, run the jobs, wait until the gateway can route
 make test-e2e-k8s
 make k8s-down
 ```
@@ -287,7 +359,7 @@ make k8s-down
 | `k8s/overlays/qa` | `identity-qa` | Ingress with placeholder hosts |
 | `k8s/overlays/prod` | `identity-prod` | Ingress with placeholder hosts |
 
-Every workload has one replica. No Secret is committed: `scripts/k8s-up.sh` creates `platform-bootstrap` from the local `.env`. The `qa` and `prod` overlays render and validate but have not been deployed; set their host names and Git remote before using them. See [ADR 0013](docs/adr/0013-local-kubernetes.md).
+Every workload has one replica. The order is the same as in Compose: the `vault-seed`, `db-init`, `keycloak-bootstrap` and `onboard` steps run as Jobs, and Postgres and Keycloak fetch their database credentials from Vault in an init container, into memory. No Secret is committed: `scripts/k8s-up.sh` creates `platform-bootstrap` from the local `.env`; it holds what seeds Vault and the Vault tokens of the workloads. The `qa` and `prod` overlays render and validate but have not been deployed; set their host names and Git remote before using them. See [ADR 0013](docs/adr/0013-local-kubernetes.md).
 
 ## Troubleshooting
 
@@ -297,6 +369,8 @@ Every workload has one replica. No Secret is committed: `scripts/k8s-up.sh` crea
 | "The existing .env is for 'dev', not 'qa'" | An environment switch needs `make reset`. |
 | Gateway answers 503 | It has not fetched the registry yet. `start.sh` waits for this; `make status` shows it. |
 | A valid-looking token gets 401 | Check `iss`: it must equal `KEYCLOAK_PUBLIC_URL` + `/realms/platform` exactly. Check `aud`: it must contain the service's client ID. |
+| Pods or containers are killed and restart (`OOMKilled`) | Docker has too little memory for the Compose stack and the local cluster together. Run one: `make stop` or `make k8s-down`. |
+| books-service answers 403 to a logged-in user | The user has no catalog role. Assign `CATALOG_READER`, `CATALOG_EDITOR` or `CATALOG_MANAGER` in auth-service and log in again. |
 | Services fail after only Vault was restarted | Vault is in memory and lost its secrets. Run `scripts/restart.sh` (everything). |
 | A port is already in use | Change it in `.env.<environment>.example`, then `make reset && make up`. |
 | Image build cannot download Gradle | Expected on some networks; the Dockerfiles take Gradle from the official `gradle` image instead of the wrapper. |
@@ -305,6 +379,6 @@ Every workload has one replica. No Secret is committed: `scripts/k8s-up.sh` crea
 
 - [Access token contract](docs/jwt-contract.md)
 - [Integrating a new service](docs/integrating-a-new-service.md)
-- [Architecture decisions](docs/adr/) (0001 to 0014)
+- [Architecture decisions](docs/adr/) (0001 to 0015)
 - [Build record, verification results and open issues](docs/PROGRESS.md)
 - [Discovery report](docs/discovery-report.md) (the state before the rebuild)

@@ -32,6 +32,13 @@ Record of the clean-slate identity platform build. It was developed on `feature/
 
 - **Follow-up (2026-10-06) – start and stop scripts, READMEs.** `scripts/start.sh` starts the platform stage by stage in dependency order and waits until the gateway can route; `scripts/stop.sh` stops it gracefully in reverse order; `restart.sh`, `status.sh` and `run-from-source.sh` complete the set, and the `Makefile` targets call them. The five services use graceful shutdown with a 30-second limit and their containers a 40-second grace period. Every repository's `README.md` was rewritten in detail. Verified: stop, start with rebuild, restart of one service (graceful shutdown logged), stop keeping containers and start again, then the end-to-end suite, 21 of 21.
 
+- **books-service integration (2026-10-06).** ADR 0015.
+  - *books-service* rebuilt as `com.books` on the four layers with ArchUnit rules: `Book` and `Author` aggregates, value objects (`Isbn` with check digit, `Title`, `Publisher`, `PersonName`, `Genre`, IDs), one class per use case, JPA and the user lookup behind ports, REST under `/api/v1/books` and `/api/v1/authors` with RFC 9457 errors. Schema by Flyway (`author`, `book`, foreign key, unique ISBN). The seed files were reshaped to the model (stable IDs, an author per book, valid ISBN-13, a description) and are loaded through the domain in dev: 47 authors, 44 books. 92 tests, none skipped; `domain` + `application` line coverage 99.7%.
+  - *Users and roles from the platform.* Every request needs a platform token and a catalog permission; the service has no users, roles or login of its own. A book stores only its owner's platform user ID; giving a book to another user is checked against user-service with a service token. Roles `CATALOG_READER`, `CATALOG_EDITOR`, `CATALOG_MANAGER` and the four permissions are created through the APIs by the onboarding job.
+  - *Vault first.* Every database user name and password is in Vault and read from there, by Postgres and Keycloak too (`vault-seed`, `secrets-fetch`, `db-init` jobs). Only the seeding job reads `.env`. `booksdb` (`booksadmin`, runtime `theuser`) and `videodb` (`videoadmin`) are created by the database job, also on an existing volume.
+  - *Platform.* Gateway routes and API description for books-service; four `books-service*.yml` files in `service-configs`; Compose, start/stop/status scripts and Kubernetes manifests follow the new order.
+  - *Verified.* Builds: books-service 92 tests, api-gateway 54, cloud-config-service 18, user-service 139, auth-service 209. Compose: started on the existing volume without a reset and from `make reset && make up`; end-to-end suite 25 of 25 (21 existing, 4 new for the catalog). By hand: 401 without a token, 403 for a logged-in user with only `USER`, 200 after `CATALOG_READER` is assigned, 44 seeded books with authors; `theuser` reads and writes `booksdb` rows but cannot create or drop a table and cannot connect to `user_db`. Kubernetes dev: `make k8s-up` deploys all fourteen pods with no restart, and `make test-e2e-k8s` passes 25 of 25.
+
 ## Final verification (2026-10-05)
 
 | Check | Result |
@@ -102,6 +109,15 @@ Start another implementation slice only after the owner updates those scope deci
 - Local Kubernetes target is Docker Desktop (the only cluster present).
 
 ## Open issues
+
+- Docker Desktop with about 8 GB cannot hold the Compose stack and the local cluster at once now that there is a fourth service: pods are `OOMKilled`. Run one at a time.
+- `theuser` is one Postgres role used as the runtime account of both `booksdb` and `videodb` (owner's choice), so those two services could read each other's rows.
+- The fixed dev credentials (Vault root token `srikanth`, `booksadmin`, `videoadmin`, `theuser`) are committed in `.env.dev.example` by owner decision, as a dev-only exception (ADR 0015).
+- The dev Vault is in memory, so `.env` still holds the values that seed it. Only the `vault-seed` job reads them.
+- `docker compose up` on its own was not tried from clean; the supported one command is `make up`, whose order the `depends_on` chain mirrors.
+- books-service keeps a deleted user's ID on their books; a catalog manager has to reassign them. Reacting to `UserDeleted` needs a broker.
+- `books-service/bin/verify-image.rb` was written for the previous implementation and no longer matches the service. It was kept, unchanged and unused, because it is the owner's file.
+- `video-service` is untouched. Only its empty database `videodb` and its accounts exist.
 
 - The gateway answers 503 for the first seconds after it reports healthy, until it has fetched the registry from Eureka. `scripts/start.sh` waits for that before it reports the platform as up.
 - The `qa` and `prod` Kubernetes overlays have placeholder host names and a placeholder Git remote and have not been deployed. Locally, `qa` and `prod` run on the same dev-mode infrastructure as `dev`.

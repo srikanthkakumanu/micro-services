@@ -1,5 +1,7 @@
 # ADR 0008: Secrets and bootstrap
 
+> Extended by [ADR 0015](0015-books-service-integration.md): Vault now starts first, every database credential is read from Vault (by Postgres and Keycloak too), and the single bootstrap job became the `vault-seed`, `secrets-fetch`, `db-init` and `keycloak-bootstrap` jobs.
+
 - Status: accepted
 - Date: 2026-10-05
 

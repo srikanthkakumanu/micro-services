@@ -2,6 +2,8 @@
 
 How `books-service`, or any other service, joins the platform. Everything is done through the APIs; nothing here needs the Keycloak console or an edit to the realm file. The end-to-end test `ServiceE2ETest` does exactly this for a `sample-service`.
 
+`books-service` joined this way and is the worked example: its onboarding is declared in [`onboarding/books-service.json`](../onboarding/books-service.json) and applied by [`scripts/onboard-services.sh`](../scripts/onboard-services.sh), which makes the calls of steps 1 and 2 below and runs on every start (ADR 0015). To onboard another service the same way, add a file next to it.
+
 All calls go through the gateway (`http://localhost:9211` in Compose) with a token that holds the permission named in each step. `PLATFORM_ADMIN` holds them all.
 
 ## 1. Register the client
@@ -99,6 +101,12 @@ In `api-gateway`'s `application.yml`, copy an existing block. Put anything more 
 
 Register the service with Eureka under the same name, and add `books-service.yml`, `books-service-dev.yml`, `books-service-qa.yml` and `books-service-prod.yml` to `service-configs` for its non-secret settings (ADR 0014).
 
+The service also needs a database and somewhere to run:
+
+- **Database credentials:** add them to `scripts/vault-bootstrap.sh` (written to `secret/<service>`) and the database to `scripts/db-init.sh`. The service reads them from Vault; nothing else holds them.
+- **Vault access:** a read-only policy and token for the service in `scripts/vault-bootstrap.sh`. If the service calls other services, its policy also reads `secret/clients/<clientId>`, where its client secret is.
+- **Compose and Kubernetes:** copy the `books-service` blocks in `docker-compose.yml` and `k8s/base/books-service.yaml`, and add the service to `BUSINESS_SERVICES` in `scripts/lib.sh`.
+
 ## 5. Decisions a token cannot make
 
 A token says what a user may do in general. For "may this user change *this* review", ask:
@@ -117,12 +125,16 @@ Rules, first match wins:
 
 Send `{"requests": [...]}` (up to 100) to get `{"decisions": [...]}` in the same order. A person may only ask about themselves; a service may ask about anyone. Permissions are read fresh, not from the token.
 
+When the service owns the resource it does not need to ask: books-service knows who owns a book, so "owner or `books:manage`" is a rule in its own domain model and costs no network call.
+
 ## 6. Service-to-service calls
 
 Services call each other directly through Eureka, not through the gateway.
 
 - **As itself:** `POST /api/v1/auth/service-token` with `clientId` and `clientSecret` returns a client-credentials token whose `aud` is the client's registered audiences and whose `permissions` are those of its service account.
 - **On behalf of a user:** `POST /api/v1/tokens/exchange` with `clientId`, `clientSecret`, the user's `subjectToken` and the target `audience`. The result keeps the user as `sub` and names only that audience. The target must be one of the client's registered audiences.
+
+books-service does the first of these to ask user-service whether a user exists before a book is given to them: its service account holds `users:read`, and its client is registered with `user-service` as an audience.
 
 ## 7. Rotate the secret
 

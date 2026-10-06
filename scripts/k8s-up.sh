@@ -78,12 +78,34 @@ if [ "$ENVIRONMENT" != dev ]; then
   exit 0
 fi
 
+# The gateway is ready a little before it has fetched the registry and can route. Wait until it
+# reaches every service, as scripts/start.sh does: an empty login is a 400 from auth-service, an
+# empty password-reset request a 400 from user-service, and books-service serves its API description.
+echo "==> Waiting until the gateway can route to the services"
+GATEWAY=http://localhost:30211
+attempts=0
+while :; do
+  auth=$(curl -s -o /dev/null -m 5 -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "$GATEWAY/api/v1/auth/login" || true)
+  users=$(curl -s -o /dev/null -m 5 -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "$GATEWAY/api/v1/users/password-reset-requests" || true)
+  books=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "$GATEWAY/docs/books-service/v3/api-docs" || true)
+  [ "$auth" = 400 ] && [ "$users" = 400 ] && [ "$books" = 200 ] && break
+  attempts=$((attempts + 1))
+  if [ "$attempts" -ge 90 ]; then
+    echo "The gateway cannot reach the services (auth-service: $auth, user-service: $users, books-service: $books)." >&2
+    exit 1
+  fi
+  sleep 2
+done
+
 cat <<INFO
 
 Deployed to namespace $NAMESPACE.
   Gateway   http://localhost:30211
   Keycloak  http://localhost:30080  (console, for debugging only)
   Mailpit   http://localhost:30025
+
+The local cluster and the Compose stack share the memory of Docker Desktop. With about 8 GB,
+run one of them at a time (scripts/stop.sh stops Compose and keeps its data).
 
 Run the end-to-end suite against it with: make test-e2e-k8s
 INFO
