@@ -2,7 +2,7 @@
 
 How `books-service`, or any other service, joins the platform. Everything is done through the APIs; nothing here needs the Keycloak console or an edit to the realm file. The end-to-end test `ServiceE2ETest` does exactly this for a `sample-service`.
 
-`books-service` joined this way and is the worked example: its onboarding is declared in [`onboarding/books-service.json`](../onboarding/books-service.json) and applied by [`scripts/onboard-services.sh`](../scripts/onboard-services.sh), which makes the calls of steps 1 and 2 below and runs on every start (ADR 0015). To onboard another service the same way, add a file next to it.
+`books-service` and `video-service` joined this way and are the worked examples: the onboarding of the first is declared in [`onboarding/books-service.json`](../onboarding/books-service.json) and applied by [`scripts/onboard-services.sh`](../scripts/onboard-services.sh), which makes the calls of steps 1 and 2 below and runs on every start (ADR 0015). To onboard another service the same way, add a file next to it.
 
 All calls go through the gateway (`http://localhost:9211` in Compose) with a token that holds the permission named in each step. `PLATFORM_ADMIN` holds them all.
 
@@ -105,7 +105,7 @@ The service also needs a database and somewhere to run:
 
 - **Database credentials:** add them to `scripts/vault-bootstrap.sh` (written to `secret/<service>`) and the database to `scripts/db-init.sh`. The service reads them from Vault; nothing else holds them.
 - **Vault access:** a read-only policy and token for the service in `scripts/vault-bootstrap.sh`. If the service calls other services, its policy also reads `secret/clients/<clientId>`, where its client secret is.
-- **Compose and Kubernetes:** copy the `books-service` blocks in `docker-compose.yml` and `k8s/base/books-service.yaml`, and add the service to `BUSINESS_SERVICES` in `scripts/lib.sh`.
+- **Compose and Kubernetes:** copy the `books-service` blocks in `docker-compose.yml` and `k8s/base/books-service.yaml`, and add the service to `BUSINESS_SERVICES` in `scripts/lib.sh` and to the image list in `scripts/k8s-up.sh`. video-service was added exactly this way (ADR 0016).
 
 ## 5. Decisions a token cannot make
 

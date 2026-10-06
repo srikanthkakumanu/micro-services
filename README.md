@@ -2,7 +2,7 @@
 
 The platform root of the Keycloak-backed identity platform. This repository does not contain a service of its own. It holds what the services share and everything needed to run them together: the start and stop scripts, the Docker Compose stack, the Keycloak realm, the secret bootstrap, the onboarding of business services, the shared build files, the end-to-end tests, the Kubernetes manifests and the documentation.
 
-`user-service` and `auth-service` are the front door for every routine identity and access operation. Keycloak sits behind them, is configured once from code, and is never called directly by people or by other services. `books-service` is the first business service on the platform: its users, logins and roles all come from those two services.
+`user-service` and `auth-service` are the front door for every routine identity and access operation. Keycloak sits behind them, is configured once from code, and is never called directly by people or by other services. `books-service` and `video-service` are business services on the platform: their users, logins and roles all come from those two services.
 
 This is a development setup. `qa` and `prod` exist as configuration profiles, not as hardened environments.
 
@@ -57,10 +57,11 @@ This is a development setup. `qa` and `prod` exist as configuration profiles, no
 | `user-service` | Identity: who someone is. Users, profiles, account actions, credential administration. |
 | `auth-service` | Access: how people and services authenticate, and what they may do. Login, sessions, roles, groups, permissions, decisions, service clients, audit, token settings and keys. |
 | `books-service` | The book catalog. Requires a platform login and a catalog role; keeps no users or roles of its own. |
+| `video-service` | Videos, their completion state and owners. Requires a platform login and a video role; built the same way. |
 | `eureka-discovery` | Service registry. |
 | `cloud-config-service` | Config Server over `service-configs` and Vault. |
 | Keycloak | Identity provider, behind the two services. |
-| Postgres | One instance, a database per owner: `keycloak`, `user_db`, `auth_db`, `booksdb`, and `videodb` (prepared for video-service). |
+| Postgres | One instance, a database per owner: `keycloak`, `user_db`, `auth_db`, `booksdb`, `videodb`. |
 | Vault | Every credential, including all database users and passwords (dev mode, in memory). |
 | Mailpit | Local mail inbox. |
 
@@ -77,7 +78,8 @@ practice/
 ├── user-service/
 ├── auth-service/
 ├── api-gateway/
-└── books-service/
+├── books-service/
+└── video-service/
 ```
 
 ## What is in this repository
@@ -111,9 +113,9 @@ practice/
 - JDK 27 (only for building and testing from source; the images build with their own JDK)
 - `make`, `curl`
 - For Kubernetes: `kubectl` and Docker Desktop's cluster
-- About 6 GB of memory for Docker. With 8 GB, run either the Compose stack or the local cluster, not both.
+- About 6 GB of memory for Docker (the Compose stack uses a little over 5 GB). With 8 GB, run either the Compose stack or the local cluster, not both.
 
-The stack uses these host ports: 5432, 8025, 8080, 8200, 9111, 9121, 9141, 9151, 9211, 9311. Change them in `.env.<environment>.example` if they are taken.
+The stack uses these host ports: 5432, 8025, 8080, 8200, 9111, 9121, 9141, 9151, 9161, 9211, 9311. Change them in `.env.<environment>.example` if they are taken.
 
 ## Quick start
 
@@ -124,7 +126,7 @@ make test-e2e    # optional: the end-to-end suite
 make stop        # graceful stop; data is kept
 ```
 
-The first `make up` generates `.env`, builds seven images and imports the realm. It takes a few minutes; later starts take about a minute.
+The first `make up` generates `.env`, builds eight images and imports the realm. It takes a few minutes; later starts take about a minute.
 
 ## Start and stop scripts
 
@@ -150,8 +152,8 @@ It starts one stage at a time and waits until that stage reports healthy before 
 | 5 | Eureka, Config Server | Services need the registry and their configuration |
 | 6 | user-service, auth-service | Need configuration, secrets, their database and Keycloak |
 | 7 | api-gateway, then wait | Until the gateway has fetched the registry and can reach both services |
-| 8 | Job `onboard` | Registers books-service with the platform through its APIs: client, permissions, catalog roles |
-| 9 | books-service, then wait | It must exist on the platform before it starts; then until the gateway can reach it |
+| 8 | Job `onboard` | Registers the business services with the platform through its APIs: clients, permissions, roles |
+| 9 | books-service, video-service, then wait | They must exist on the platform before they start; then until the gateway can reach them |
 
 It is safe to run again: running containers are left alone, the jobs keep what already exists, and `db-init` creates databases that were added since (no reset needed). If a stage does not become healthy the script stops there and names the service to look at.
 
@@ -169,7 +171,7 @@ It goes through the start order backwards, so nothing loses a dependency while i
 | Step | What stops | Effect |
 | --- | --- | --- |
 | 1 | api-gateway | No new requests come in |
-| 2 | books-service | Finishes requests in flight, deregisters from Eureka, closes database connections |
+| 2 | books-service, video-service | Finish requests in flight, deregister from Eureka, close database connections |
 | 3 | user-service, auth-service | The same |
 | 4 | Config Server, Eureka | |
 | 5 | Keycloak | |
@@ -200,7 +202,7 @@ Lists every service with its health, says whether the gateway can route to both 
 scripts/run-from-source.sh auth-service
 ```
 
-Stops that service's container and runs `./gradlew bootRun` in its repository with the settings and Vault token of the running stack. Stop it with Ctrl-C, then `scripts/start.sh auth-service` puts the container back. Works for `user-service`, `auth-service`, `books-service` and `api-gateway`.
+Stops that service's container and runs `./gradlew bootRun` in its repository with the settings and Vault token of the running stack. Stop it with Ctrl-C, then `scripts/start.sh auth-service` puts the container back. Works for `user-service`, `auth-service`, `books-service`, `video-service` and `api-gateway`.
 
 ## Make targets
 
@@ -222,13 +224,14 @@ Stops that service's container and runs `./gradlew bootRun` in its repository wi
 | What | URL |
 | --- | --- |
 | Gateway (use this) | http://localhost:9211 |
-| Swagger UI for all three APIs | http://localhost:9211/swagger-ui.html |
+| Swagger UI for all four APIs | http://localhost:9211/swagger-ui.html |
 | Mailpit | http://localhost:8025 |
 | Keycloak console (debugging only) | http://localhost:8080 |
 | Vault | http://localhost:8200 |
 | Eureka | http://localhost:9111 |
 | Config Server | http://localhost:9311 |
-| user-service, auth-service, books-service directly | http://localhost:9121, http://localhost:9141, http://localhost:9151 |
+| user-service, auth-service directly | http://localhost:9121, http://localhost:9141 |
+| books-service, video-service directly | http://localhost:9151, http://localhost:9161 |
 | Postgres | localhost:5432 |
 
 ## First calls
@@ -244,6 +247,7 @@ curl -s localhost:9211/api/v1/auth/me -H "Authorization: Bearer $TOKEN"        #
 curl -s "localhost:9211/api/v1/users?size=5" -H "Authorization: Bearer $TOKEN"  # list users
 curl -s localhost:9211/api/v1/roles -H "Authorization: Bearer $TOKEN"           # list roles
 curl -s "localhost:9211/api/v1/books?size=5" -H "Authorization: Bearer $TOKEN"  # the book catalog
+curl -s "localhost:9211/api/v1/videos?size=5" -H "Authorization: Bearer $TOKEN" # the videos
 
 # Register a new user; the verification email lands in Mailpit.
 curl -s -X POST localhost:9211/api/v1/users/register -H 'Content-Type: application/json' \
@@ -272,7 +276,7 @@ For the development environment (`ENV=dev`) only. The fixed ones were chosen by 
 | --- | --- | --- | --- |
 | Vault dev root token | | `srikanth` | |
 | `booksdb` schema admin | `booksadmin` | `booksadmin` | `secret/books-service` |
-| `booksdb` and `videodb` runtime | `theuser` | `theuser` | `secret/books-service`, `secret/video-service` |
+| `booksdb` and `videodb` runtime (used by books-service and video-service) | `theuser` | `theuser` | `secret/books-service`, `secret/video-service` |
 | `videodb` schema admin | `videoadmin` | `videoadmin` | `secret/video-service` |
 | Postgres superuser | `postgres` | `.env`: `POSTGRES_PASSWORD` | `secret/postgres` |
 | `keycloak` database | `keycloak` | `.env`: `KEYCLOAK_DB_PASSWORD` | `secret/keycloak-db` |
@@ -298,7 +302,7 @@ Application users (people who sign in) are not in this table: they are created t
 2. Vault starts first. The `vault-seed` job copies the credentials from `.env` into Vault, generates the platform client secrets, and creates a read-only policy and token per reader. **It is the only thing that reads credentials from `.env`.**
 3. The `secrets-fetch` job reads the Postgres superuser's and Keycloak's database credentials from Vault and hands them to those two containers as files. They cannot talk to Vault themselves.
 4. The `db-init` job reads every database credential from Vault and creates the databases and users. Run again, it sets each password to the one Vault holds.
-5. Services read their secrets from Vault with their own token: `secret/user-service`, `secret/auth-service`, `secret/books-service`, `secret/api-gateway`. `auth-service` writes the secrets of registered service clients to `secret/clients/<id>`.
+5. Services read their secrets from Vault with their own token: `secret/user-service`, `secret/auth-service`, `secret/books-service`, `secret/video-service`, `secret/api-gateway`. `auth-service` writes the secrets of registered service clients to `secret/clients/<id>`.
 
 | Vault path | Holds |
 | --- | --- |
@@ -319,15 +323,20 @@ See [ADR 0008](docs/adr/0008-secrets-bootstrap.md) and [ADR 0015](docs/adr/0015-
 
 ## Business services
 
-A business service joins the platform through its APIs, never by editing the realm file. `books-service` is the first:
+A business service joins the platform through its APIs, never by editing the realm file. Each has a file in `onboarding/` that declares its client, its permissions and the roles that grant them. The `onboard` job applies every file on each start by calling `/api/v1/clients`, `/api/v1/permissions` and `/api/v1/roles` as the platform administrator; what exists is kept.
 
-- `onboarding/books-service.json` declares its client, its permissions (`books:read`, `books:write`, `books:manage`, `authors:manage`) and the roles that grant them (`CATALOG_READER`, `CATALOG_EDITOR`, `CATALOG_MANAGER`, and `PLATFORM_ADMIN`).
-- The `onboard` job applies it on every start by calling `/api/v1/clients`, `/api/v1/permissions` and `/api/v1/roles` as the platform administrator. What exists is kept.
-- A user gets access when a role is assigned to them in auth-service; a user with only `USER` gets `403` from the catalog.
+| Service | Paths | Roles | Permissions |
+| --- | --- | --- | --- |
+| `books-service` | `/api/v1/books`, `/api/v1/authors` | `CATALOG_READER`, `CATALOG_EDITOR`, `CATALOG_MANAGER` | `books:read`, `books:write`, `books:manage`, `authors:manage` |
+| `video-service` | `/api/v1/videos` | `VIDEO_READER`, `VIDEO_EDITOR`, `VIDEO_MANAGER` | `videos:read`, `videos:write`, `videos:manage` |
+
+- A reader reads; an editor also adds entries and changes their own; a manager changes any entry and transfers ownership. `PLATFORM_ADMIN` holds every permission.
+- The roles of one service give nothing in the other. A user with only `USER` gets `403` from both.
+- A user gets access when a role is assigned to them in auth-service, and sees it in their next token:
 
 ```bash
 curl -s -X POST localhost:9211/api/v1/users/$USER_ID/roles -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"roles":[{"name":"CATALOG_READER"}]}'
+  -H 'Content-Type: application/json' -d '{"roles":[{"name":"VIDEO_READER"}]}'
 ```
 
 To add another service, see [Integrating a new service](docs/integrating-a-new-service.md).
@@ -338,10 +347,10 @@ To add another service, see [Integrating a new service](docs/integrating-a-new-s
 | --- | --- | --- |
 | Security starter (35 tests) | `./gradlew build` here | JDK 27 |
 | Each service | `./gradlew build` in its repository | JDK 27, Docker (Testcontainers) |
-| End to end (25 tests) | `make test-e2e` | The stack running with `dev` |
+| End to end (29 tests) | `make test-e2e` | The stack running with `dev` |
 | End to end on Kubernetes | `make test-e2e-k8s` | `make k8s-up` |
 
-The end-to-end suite creates all its data through the APIs. It covers self-service, user and access administration, decisions, service onboarding and secret rotation, guards, audit, JWT validation at the gateway and at each service, the token contract, key rotation, lifetimes, token exchange and issuer consistency, and the book catalog: login and a catalog role are required, editors keep only their own books, managers hand books to users that user-service knows.
+The end-to-end suite creates all its data through the APIs. It covers self-service, user and access administration, decisions, service onboarding and secret rotation, guards, audit, JWT validation at the gateway and at each service, the token contract, key rotation, lifetimes, token exchange and issuer consistency, and the two business services: a login and one of the service's roles are required, a role of one service does not open the other, editors keep only their own entries, managers hand entries to users that user-service knows.
 
 ## Kubernetes
 
@@ -370,7 +379,7 @@ Every workload has one replica. The order is the same as in Compose: the `vault-
 | Gateway answers 503 | It has not fetched the registry yet. `start.sh` waits for this; `make status` shows it. |
 | A valid-looking token gets 401 | Check `iss`: it must equal `KEYCLOAK_PUBLIC_URL` + `/realms/platform` exactly. Check `aud`: it must contain the service's client ID. |
 | Pods or containers are killed and restart (`OOMKilled`) | Docker has too little memory for the Compose stack and the local cluster together. Run one: `make stop` or `make k8s-down`. |
-| books-service answers 403 to a logged-in user | The user has no catalog role. Assign `CATALOG_READER`, `CATALOG_EDITOR` or `CATALOG_MANAGER` in auth-service and log in again. |
+| books-service or video-service answers 403 to a logged-in user | The user has none of that service's roles (`CATALOG_*` for books, `VIDEO_*` for videos). Assign one in auth-service and log in again. |
 | Services fail after only Vault was restarted | Vault is in memory and lost its secrets. Run `scripts/restart.sh` (everything). |
 | A port is already in use | Change it in `.env.<environment>.example`, then `make reset && make up`. |
 | Image build cannot download Gradle | Expected on some networks; the Dockerfiles take Gradle from the official `gradle` image instead of the wrapper. |
@@ -379,6 +388,6 @@ Every workload has one replica. The order is the same as in Compose: the `vault-
 
 - [Access token contract](docs/jwt-contract.md)
 - [Integrating a new service](docs/integrating-a-new-service.md)
-- [Architecture decisions](docs/adr/) (0001 to 0015)
+- [Architecture decisions](docs/adr/) (0001 to 0016)
 - [Build record, verification results and open issues](docs/PROGRESS.md)
 - [Discovery report](docs/discovery-report.md) (the state before the rebuild)

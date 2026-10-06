@@ -39,6 +39,8 @@ Record of the clean-slate identity platform build. It was developed on `feature/
   - *Platform.* Gateway routes and API description for books-service; four `books-service*.yml` files in `service-configs`; Compose, start/stop/status scripts and Kubernetes manifests follow the new order.
   - *Verified.* Builds: books-service 92 tests, api-gateway 54, cloud-config-service 18, user-service 139, auth-service 209. Compose: started on the existing volume without a reset and from `make reset && make up`; end-to-end suite 25 of 25 (21 existing, 4 new for the catalog). By hand: 401 without a token, 403 for a logged-in user with only `USER`, 200 after `CATALOG_READER` is assigned, 44 seeded books with authors; `theuser` reads and writes `booksdb` rows but cannot create or drop a table and cannot connect to `user_db`. Kubernetes dev: `make k8s-up` deploys all fourteen pods with no restart, and `make test-e2e-k8s` passes 25 of 25.
 
+- **video-service integration (2026-10-06).** ADR 0016. Rebuilt as `com.videos` on the same four layers and rules as books-service: `Video` aggregate, one class per use case, REST under `/api/v1/videos` with complete and transfer endpoints, RFC 9457 errors, Flyway schema in `videodb`. A platform login and a video role (`VIDEO_READER`, `VIDEO_EDITOR`, `VIDEO_MANAGER`) are required; a book role does not open videos. A starter set of 20 sample videos is loaded in dev. Onboarded through the platform APIs; routed by the gateway; in Compose, the scripts and Kubernetes. Verified: video-service 70 tests (100% line coverage on `domain` + `application`), api-gateway 60, cloud-config-service 21, none skipped; started on the running stack without a reset; end-to-end suite 29 of 29 on Compose (25 existing, 4 new); Kubernetes dev: `make k8s-up` deploys all fifteen pods with no restart and `make test-e2e-k8s` passes 29 of 29.
+
 ## Final verification (2026-10-05)
 
 | Check | Result |
@@ -117,7 +119,8 @@ Start another implementation slice only after the owner updates those scope deci
 - `docker compose up` on its own was not tried from clean; the supported one command is `make up`, whose order the `depends_on` chain mirrors.
 - books-service keeps a deleted user's ID on their books; a catalog manager has to reassign them. Reacting to `UserDeleted` needs a broker.
 - `books-service/bin/verify-image.rb` was written for the previous implementation and no longer matches the service. It was kept, unchanged and unused, because it is the owner's file.
-- `video-service` is untouched. Only its empty database `videodb` and its accounts exist.
+- `video-service/bin/verify-image.rb`, like the one in books-service, was written for the previous implementation, no longer matches the service and still contains the old passwords. Kept unchanged because it is the owner's file.
+- Supporting code is duplicated between books-service and video-service (paging, user lookup adapter, error handling, test helpers). A third consumer should take it from the shared starter instead.
 
 - The gateway answers 503 for the first seconds after it reports healthy, until it has fetched the registry from Eureka. `scripts/start.sh` waits for that before it reports the platform as up.
 - The `qa` and `prod` Kubernetes overlays have placeholder host names and a placeholder Git remote and have not been deployed. Locally, `qa` and `prod` run on the same dev-mode infrastructure as `dev`.
