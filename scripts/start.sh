@@ -2,12 +2,15 @@
 # Starts the platform in dependency order and waits at every step, so nothing starts before what
 # it needs is ready:
 #
-#   1. Postgres, Vault, Mailpit
-#   2. Keycloak (imports the realm on first start)
-#   3. bootstrap (seeds Vault, applies client secrets to Keycloak)
-#   4. Eureka, Config Server
-#   5. user-service, auth-service
-#   6. api-gateway, then wait until it can route to both services
+#   1. Vault, then the job that seeds it (every credential of the platform lives in Vault)
+#   2. Postgres and Mailpit; Postgres gets its superuser credentials from Vault
+#   3. the job that creates the databases and their users, with credentials from Vault
+#   4. Keycloak (imports the realm on first start), then the job that applies its secrets
+#   5. Eureka, Config Server
+#   6. user-service, auth-service
+#   7. api-gateway, then wait until it can route to both services
+#   8. the onboarding job (registers books-service with the platform through its APIs)
+#   9. books-service, then wait until the gateway can route to it
 #
 # Usage: scripts/start.sh [dev|qa|prod] [--build] [service ...]
 #
@@ -15,7 +18,7 @@
 #   --build       rebuild the service images first
 #   service ...   start only these (and wait for them); what they depend on must be running
 #
-# Safe to run again: running containers are left alone and the bootstrap keeps existing secrets.
+# Safe to run again: running containers are left alone and the jobs keep what already exists.
 set -eu
 cd "$(dirname "$0")/.."
 . scripts/lib.sh
@@ -27,7 +30,7 @@ for argument in "$@"; do
   case "$argument" in
     dev|qa|prod) ENVIRONMENT=$argument ;;
     --build) BUILD=--build ;;
-    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) is_known_service "$argument" || fail "Unknown service or option: $argument"; ONLY="$ONLY $argument" ;;
   esac
 done
@@ -56,17 +59,23 @@ stage() {
     || fail "Not healthy:$wanted. See: docker compose logs$wanted"
 }
 
-say "Starting the platform with the $ENVIRONMENT configuration"
-stage "Infrastructure" $INFRASTRUCTURE
-stage "Identity provider" $IDENTITY_PROVIDER
+# A one-shot job; skipped when only some services were asked for.
+job() {
+  [ -z "$ONLY" ] || return 0
+  say "$1"
+  run_job "$2"
+}
 
-if [ -z "$ONLY" ]; then
-  # Vault runs in memory in this setup, so it is empty after every restart. The bootstrap fills
-  # it again; if it still has its secrets they are kept.
-  say "Bootstrap: seeding Vault and applying secrets to Keycloak"
-  docker compose up --no-deps --force-recreate $BUILD --exit-code-from bootstrap bootstrap >/dev/null \
-    || fail "The bootstrap failed. See: docker compose logs bootstrap"
-fi
+say "Starting the platform with the $ENVIRONMENT configuration"
+stage "Secret store" $SECRET_STORE
+# Vault runs in memory in this setup, so it is empty after every restart and is seeded on every
+# start. Client secrets it still holds are kept.
+job "Seeding Vault" vault-seed
+job "Fetching the database credentials of Postgres and Keycloak from Vault" secrets-fetch
+stage "Infrastructure" $INFRASTRUCTURE
+job "Creating databases and their users with the credentials in Vault" db-init
+stage "Identity provider" $IDENTITY_PROVIDER
+job "Applying the secrets in Vault to Keycloak" keycloak-bootstrap
 
 stage "Registry and configuration" $PLATFORM_SUPPORT
 stage "Services" $PLATFORM_SERVICES
@@ -75,6 +84,13 @@ stage "Gateway" $EDGE
 if [ -z "$ONLY" ] || in_list api-gateway $ONLY; then
   say "Waiting until the gateway can route to the services"
   wait_for_routing
+fi
+
+job "Onboarding business services through the platform APIs" onboard
+stage "Business services" $BUSINESS_SERVICES
+if [ -z "$ONLY" ] || in_list books-service $ONLY; then
+  say "Waiting until the gateway can route to books-service"
+  wait_for_business_routing
 fi
 
 say "The platform is up ($ENVIRONMENT)"

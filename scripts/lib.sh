@@ -2,12 +2,16 @@
 # Shared by the start, stop, restart and status scripts. Not meant to be run on its own.
 
 # The stack in the order it has to come up. Stopping goes through the same list backwards.
-INFRASTRUCTURE="postgres vault mailpit"
+# Vault comes first: everything else, the database included, gets its credentials from it.
+SECRET_STORE="vault"
+INFRASTRUCTURE="postgres mailpit"
 IDENTITY_PROVIDER="keycloak"
 PLATFORM_SUPPORT="eureka-discovery config-server"
 PLATFORM_SERVICES="user-service auth-service"
 EDGE="api-gateway"
-ALL_SERVICES="$INFRASTRUCTURE $IDENTITY_PROVIDER $PLATFORM_SUPPORT $PLATFORM_SERVICES $EDGE"
+# Services that use the platform. They start after the gateway, once they have been onboarded.
+BUSINESS_SERVICES="books-service"
+ALL_SERVICES="$SECRET_STORE $INFRASTRUCTURE $IDENTITY_PROVIDER $PLATFORM_SUPPORT $PLATFORM_SERVICES $EDGE $BUSINESS_SERVICES"
 
 # How long a container gets to finish what it is doing before it is killed.
 STOP_TIMEOUT=${STOP_TIMEOUT:-40}
@@ -68,6 +72,35 @@ wait_for_routing() {
   done
 }
 
+# Asks the gateway for books-service's API description, which needs no login: 200 means the
+# service answered (404 where the description is switched off, as in prod); 503 means the gateway
+# cannot reach it yet.
+books_routing() {
+  curl -s -o /dev/null -m 5 -w '%{http_code}' \
+    "http://localhost:$(setting GATEWAY_PORT)/docs/books-service/v3/api-docs" || true
+}
+
+wait_for_business_routing() {
+  attempts=0
+  while :; do
+    books=$(books_routing)
+    case "$books" in 200|404) return 0 ;; esac
+    attempts=$((attempts + 1))
+    [ "$attempts" -ge 60 ] && fail "The gateway cannot reach books-service (answer: $books)."
+    sleep 2
+  done
+}
+
+# Runs a one-shot job to completion and fails with its output if it does not succeed.
+run_job() {
+  job=$1
+  # shellcheck disable=SC2086
+  if ! output=$(docker compose up --no-deps --force-recreate ${BUILD:-} --exit-code-from "$job" "$job" 2>&1); then
+    printf '%s\n' "$output" | tail -20 >&2
+    fail "The $job job failed. See: docker compose logs $job"
+  fi
+}
+
 print_urls() {
   cat <<INFO
 
@@ -80,6 +113,7 @@ print_urls() {
   Config Server        http://localhost:$(setting CONFIG_SERVER_PORT)
   user-service         http://localhost:$(setting USER_SERVICE_PORT)
   auth-service         http://localhost:$(setting AUTH_SERVICE_PORT)
+  books-service        http://localhost:$(setting BOOKS_SERVICE_PORT)
 
   Administrator: platform-admin, password PLATFORM_ADMIN_PASSWORD in .env
 INFO

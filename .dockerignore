@@ -6,4 +6,8 @@
 !platform-security-starter/build.gradle
 !platform-security-starter/src/main/**
 !scripts/vault-bootstrap.sh
+!scripts/fetch-runtime-secrets.sh
+!scripts/db-init.sh
 !scripts/keycloak-bootstrap.sh
+!scripts/onboard-services.sh
+!onboarding/*.json

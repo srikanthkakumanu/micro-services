@@ -1,0 +1,38 @@
+{
+  "client": {
+    "clientId": "books-service",
+    "name": "Books",
+    "description": "Catalog of books and authors",
+    "audiences": ["user-service"]
+  },
+  "permissions": [
+    {"name": "books:read", "description": "Read books and authors"},
+    {"name": "books:write", "description": "Add books and change or remove your own"},
+    {"name": "books:manage", "description": "Change or remove any book and transfer ownership"},
+    {"name": "authors:manage", "description": "Add, change and remove authors"}
+  ],
+  "roles": [
+    {
+      "name": "CATALOG_READER",
+      "description": "Reads the book catalog",
+      "permissions": ["books:read"]
+    },
+    {
+      "name": "CATALOG_EDITOR",
+      "description": "Reads the catalog and keeps their own books",
+      "permissions": ["books:read", "books:write"]
+    },
+    {
+      "name": "CATALOG_MANAGER",
+      "description": "Manages every book and the authors",
+      "permissions": ["books:read", "books:write", "books:manage", "authors:manage"]
+    },
+    {
+      "name": "PLATFORM_ADMIN",
+      "permissions": ["books:read", "books:write", "books:manage", "authors:manage"]
+    }
+  ],
+  "serviceAccountRoles": [
+    {"name": "users:read", "clientId": "user-service"}
+  ]
+}

@@ -2,10 +2,12 @@
 # Stops the platform gracefully, in the reverse of the start order:
 #
 #   1. api-gateway              no new requests come in
-#   2. user-service, auth-service   finish requests in flight, deregister from Eureka
-#   3. Config Server, Eureka
-#   4. Keycloak
-#   5. Mailpit, Vault, Postgres     the database goes last, after everything that writes to it
+#   2. books-service            finishes requests in flight, deregisters from Eureka
+#   3. user-service, auth-service   the same
+#   4. Config Server, Eureka
+#   5. Keycloak
+#   6. Mailpit, Postgres        the database goes after everything that writes to it
+#   7. Vault                    last, as it was first
 #
 # Each container gets STOP_TIMEOUT seconds (default 40) to shut down cleanly before it is killed.
 #
@@ -30,7 +32,7 @@ for argument in "$@"; do
     --keep) KEEP=yes ;;
     --reset) RESET=yes ;;
     --yes) ASSUME_YES=yes ;;
-    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) is_known_service "$argument" || fail "Unknown service or option: $argument"; ONLY="$ONLY $argument" ;;
   esac
 done
@@ -65,10 +67,12 @@ stage() {
 }
 
 stage "Gateway" $EDGE
+stage "Business services" $BUSINESS_SERVICES
 stage "Services" $PLATFORM_SERVICES
 stage "Registry and configuration" config-server eureka-discovery
 stage "Identity provider" $IDENTITY_PROVIDER
-stage "Infrastructure" mailpit vault postgres
+stage "Infrastructure" mailpit postgres
+stage "Secret store" $SECRET_STORE
 
 if [ -n "$ONLY" ]; then
   say "Stopped:$ONLY"

@@ -25,4 +25,9 @@ case "$(code /api/v1/auth/login)/$(code /api/v1/users/password-reset-requests)" 
   000/*|*/000) echo "Gateway routing: the gateway is not reachable" ;;
   *) echo "Gateway routing: not ready (the gateway cannot reach a service yet)" ;;
 esac
+case "$(books_routing)" in
+  200|404) echo "Books routing:   ok (books-service reachable; using it requires a login and a catalog role)" ;;
+  000) ;;
+  *) echo "Books routing:   not ready (the gateway cannot reach books-service)" ;;
+esac
 print_urls

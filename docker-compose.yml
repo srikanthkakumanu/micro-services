@@ -1,11 +1,34 @@
 # Local development stack. Start with `make up`; see README.md.
 # Settings come from .env, generated from .env.<environment>.example by `make up ENV=<environment>`.
-# Its secrets are random and are copied into Vault by the bootstrap job.
+#
+# Credentials: the vault-seed job copies the secrets in .env into Vault and is the only thing
+# that reads them from the environment. Everything else gets its credentials from Vault:
+# the services through Spring Cloud Vault, Postgres and Keycloak through the secrets-fetch job,
+# and the other one-shot jobs with a read-only token.
+#
+# Order (also what scripts/start.sh follows):
+#   vault -> vault-seed -> secrets-fetch -> postgres -> db-init -> keycloak -> keycloak-bootstrap
+#   -> eureka, config-server -> user-service, auth-service -> api-gateway -> onboard -> books-service
 
 name: identity-platform
 
 # What every platform service needs to know about its surroundings inside the Compose network.
 # ENVIRONMENT (dev, qa or prod) selects the Spring profile and with it the configuration files.
+# The image of the one-shot jobs; each runs one script from scripts/.
+x-bootstrap-job: &bootstrap-job
+  image: identity-platform-bootstrap
+  build:
+    context: .
+    dockerfile: bootstrap/Dockerfile
+    args:
+      VAULT_VERSION: ${VAULT_VERSION}
+  restart: "no"
+
+# How the jobs that come after the seeding reach Vault: read-only.
+x-vault-read-only: &vault-read-only
+  VAULT_ADDR: http://vault:8200
+  VAULT_TOKEN: ${BOOTSTRAP_VAULT_TOKEN}
+
 x-platform-addresses: &platform-addresses
   SPRING_PROFILES_ACTIVE: ${ENVIRONMENT}
   CONFIG_SERVER_URL: http://config-server:9311
@@ -14,25 +37,6 @@ x-platform-addresses: &platform-addresses
   EUREKA_URL: http://eureka-discovery:9111/eureka/
 
 services:
-  postgres:
-    image: postgres:${POSTGRES_VERSION}
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
-      USER_DB_PASSWORD: ${USER_DB_PASSWORD}
-      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
-    ports:
-      - "${POSTGRES_PORT}:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql
-      - ./postgres/init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
   vault:
     image: hashicorp/vault:${VAULT_VERSION}
     # DEV ONLY: in-memory dev server with a fixed root token.
@@ -50,6 +54,81 @@ services:
       timeout: 3s
       retries: 20
 
+  # One-shot: seeds Vault from .env. The only job that reads credentials from the environment.
+  vault-seed:
+    <<: *bootstrap-job
+    command: ["/bootstrap/vault-bootstrap.sh"]
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
+      BOOKS_DB_ADMIN_USERNAME: ${BOOKS_DB_ADMIN_USERNAME}
+      BOOKS_DB_ADMIN_PASSWORD: ${BOOKS_DB_ADMIN_PASSWORD}
+      VIDEO_DB_ADMIN_USERNAME: ${VIDEO_DB_ADMIN_USERNAME}
+      VIDEO_DB_ADMIN_PASSWORD: ${VIDEO_DB_ADMIN_PASSWORD}
+      APP_DB_USERNAME: ${APP_DB_USERNAME}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD}
+      BOOTSTRAP_VAULT_TOKEN: ${BOOTSTRAP_VAULT_TOKEN}
+      API_GATEWAY_VAULT_TOKEN: ${API_GATEWAY_VAULT_TOKEN}
+      USER_SERVICE_VAULT_TOKEN: ${USER_SERVICE_VAULT_TOKEN}
+      AUTH_SERVICE_VAULT_TOKEN: ${AUTH_SERVICE_VAULT_TOKEN}
+      BOOKS_SERVICE_VAULT_TOKEN: ${BOOKS_SERVICE_VAULT_TOKEN}
+      CONFIG_SERVER_VAULT_TOKEN: ${CONFIG_SERVER_VAULT_TOKEN}
+    depends_on:
+      vault:
+        condition: service_healthy
+
+  # One-shot: hands Postgres and Keycloak their database credentials from Vault, as files in a
+  # volume only those two mount. Runs as root so it can give each file to the right user.
+  secrets-fetch:
+    <<: *bootstrap-job
+    user: root
+    command: ["/bootstrap/fetch-runtime-secrets.sh"]
+    environment:
+      <<: *vault-read-only
+      SECRETS_DIR: /run/platform-secrets
+    volumes:
+      - platform-secrets:/run/platform-secrets
+    depends_on:
+      vault-seed:
+        condition: service_completed_successfully
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION}
+    environment:
+      # The superuser's name and password come from Vault, by way of the secrets-fetch job.
+      POSTGRES_USER_FILE: /run/platform-secrets/postgres-username
+      POSTGRES_PASSWORD_FILE: /run/platform-secrets/postgres-password
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - platform-secrets:/run/platform-secrets:ro
+    depends_on:
+      secrets-fetch:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: creates the databases and their users with the credentials held in Vault.
+  db-init:
+    <<: *bootstrap-job
+    command: ["/bootstrap/db-init.sh"]
+    environment:
+      <<: *vault-read-only
+      PGHOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   mailpit:
     image: axllent/mailpit:${MAILPIT_VERSION}
     ports:
@@ -62,14 +141,16 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
-    command: ["start-dev", "--import-realm"]
+    # The database name, user and password come from Vault, by way of the secrets-fetch job.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - set -a && . /run/platform-secrets/keycloak-db.env && set +a && exec /opt/keycloak/bin/kc.sh start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_DB_URL_HOST: postgres
       # Fixed public URL: `iss` is identical for tokens requested from the host and from inside
       # the network. Backchannel requests (token, JWKS, admin) may still use http://keycloak:8080.
       KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL}
@@ -80,9 +161,10 @@ services:
       - "${KEYCLOAK_PORT}:8080"
     volumes:
       - ./keycloak/platform-realm.json:/opt/keycloak/data/import/platform-realm.json:ro
+      - platform-secrets:/run/platform-secrets:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       mailpit:
         condition: service_healthy
     healthcheck:
@@ -98,32 +180,18 @@ services:
       retries: 60
       start_period: 20s
 
-  # One-shot: seeds Vault, then applies client secrets and the admin password to Keycloak.
-  bootstrap:
-    build:
-      context: .
-      dockerfile: bootstrap/Dockerfile
-      args:
-        VAULT_VERSION: ${VAULT_VERSION}
+  # One-shot: applies the client secrets and the administrator's password held in Vault to the
+  # imported realm.
+  keycloak-bootstrap:
+    <<: *bootstrap-job
+    command: ["/bootstrap/keycloak-bootstrap.sh"]
     environment:
-      VAULT_ADDR: http://vault:8200
-      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN}
+      <<: *vault-read-only
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM}
-      USER_DB_PASSWORD: ${USER_DB_PASSWORD}
-      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD}
-      API_GATEWAY_VAULT_TOKEN: ${API_GATEWAY_VAULT_TOKEN}
-      USER_SERVICE_VAULT_TOKEN: ${USER_SERVICE_VAULT_TOKEN}
-      AUTH_SERVICE_VAULT_TOKEN: ${AUTH_SERVICE_VAULT_TOKEN}
-      CONFIG_SERVER_VAULT_TOKEN: ${CONFIG_SERVER_VAULT_TOKEN}
     depends_on:
-      vault:
-        condition: service_healthy
       keycloak:
         condition: service_healthy
-    restart: "no"
 
   eureka-discovery:
     # Time to finish requests in flight and deregister before the container is killed.
@@ -159,7 +227,7 @@ services:
     volumes:
       - ../service-configs:/config-repo:ro
     depends_on:
-      bootstrap:
+      keycloak-bootstrap:
         condition: service_completed_successfully
       eureka-discovery:
         condition: service_healthy
@@ -222,5 +290,41 @@ services:
       auth-service:
         condition: service_healthy
 
+  # One-shot: registers the business services with the platform through its APIs (client,
+  # permissions, roles) and renews their client secrets in Vault.
+  onboard:
+    <<: *bootstrap-job
+    command: ["/bootstrap/onboard-services.sh"]
+    environment:
+      <<: *vault-read-only
+      GATEWAY_URL: http://api-gateway:9211
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
+  books-service:
+    # Time to finish requests in flight and deregister before the container is killed.
+    stop_grace_period: 40s
+    build:
+      context: ../books-service
+      additional_contexts:
+        platform: .
+    environment:
+      <<: *platform-addresses
+      DATABASE_URL: jdbc:postgresql://postgres:5432/booksdb
+      VAULT_URI: http://vault:8200
+      VAULT_TOKEN: ${BOOKS_SERVICE_VAULT_TOKEN}
+    ports:
+      - "${BOOKS_SERVICE_PORT}:9151"
+    depends_on:
+      onboard:
+        condition: service_completed_successfully
+      config-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:
+  # Database credentials fetched from Vault for Postgres and Keycloak. Rewritten on every start.
+  platform-secrets:

@@ -3,7 +3,7 @@
 # Its container is stopped first so the port is free; everything else keeps running.
 # Stop it with Ctrl-C, then `scripts/start.sh <service>` puts the container back.
 #
-# Usage: scripts/run-from-source.sh user-service|auth-service|api-gateway
+# Usage: scripts/run-from-source.sh user-service|auth-service|books-service|api-gateway
 set -eu
 cd "$(dirname "$0")/.."
 . scripts/lib.sh
@@ -13,8 +13,9 @@ SERVICE=${1:-}
 case "$SERVICE" in
   user-service) TOKEN=$(setting USER_SERVICE_VAULT_TOKEN) ;;
   auth-service) TOKEN=$(setting AUTH_SERVICE_VAULT_TOKEN) ;;
+  books-service) TOKEN=$(setting BOOKS_SERVICE_VAULT_TOKEN) ;;
   api-gateway) TOKEN="" ;;
-  *) fail "Usage: scripts/run-from-source.sh user-service|auth-service|api-gateway" ;;
+  *) fail "Usage: scripts/run-from-source.sh user-service|auth-service|books-service|api-gateway" ;;
 esac
 [ -d "../$SERVICE" ] || fail "../$SERVICE is not checked out next to this repository."
 
